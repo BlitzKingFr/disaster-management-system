@@ -5,15 +5,10 @@ import "leaflet/dist/leaflet.css";
 
 export default function Map() {
   useEffect(() => {
-    let L: any;
-
-    
-    import("leaflet").then((leaflet) => {
-      L = leaflet;
-
+    import("leaflet").then((L) => {
       const container = document.getElementById("map");
       if (!container) return;
-      if ((container as any)._leaflet_id) return; 
+      if ((container as any)._leaflet_id) return;
 
       const map = L.map(container).setView([27.7172, 85.3240], 13);
 
@@ -21,8 +16,23 @@ export default function Map() {
         attribution: "&copy; OpenStreetMap contributors",
       }).addTo(map);
 
-      
-      return () => map.remove();
+      let marker: any = null;
+      function onMapClick(e: any) {
+        if (marker) {
+          map.removeLayer(marker);
+        }
+         marker = L.marker(e.latlng)
+          .addTo(map)
+          .openPopup();
+      }
+
+      map.on("click", onMapClick);
+
+      // Cleanup
+      return () => {
+        map.off("click", onMapClick);
+        map.remove();
+      };
     });
   }, []);
 
