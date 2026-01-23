@@ -9,7 +9,7 @@ const Footer = () => {
           <div className="flex items-center gap-2">
             <div className="size-6 bg-primary/50 rounded flex items-center justify-center text-white">
             </div>
-            <span className="text-sm font-bold text-slate-900 dark:text-white">LOGO</span>
+            <span className="text-sm font-bold text-white dark:text-white">LOGO</span>
           </div>
           <div className="flex gap-6">
             <a className="text-medium font-medium text-white dark:text-slate-400 hover:text-blue-600" href="#">Privacy Policy</a>
