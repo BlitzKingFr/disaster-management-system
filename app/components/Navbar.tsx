@@ -9,7 +9,7 @@ import { Button } from '@mui/material';
 const navItems = [
   { label: 'Home', href: '/' },
   { label: 'About', href: '/about' },
-  { label: 'Blog', href: '/blog' },
+  { label: 'Emergency Resource', href: '/Emergencyresource' },
   { label: 'Contact', href: '/NavPages/Contact' },
 ];
 
@@ -18,13 +18,17 @@ export default function Navbar() {
 
   return (
     <nav className="w-full border-b border-gray-200 bg-white">
-      <div className="flex w-full items-center justify-between px-6 py-4">
+      <div className="flex w-full items-center px-6 py-4">
+        
+       
+        <div className="flex flex-1 justify-start">
+          <Link href="/" className="text-xl font-semibold text-slate-900">
+            <TextRevealButton text="LOGO" />
+          </Link>
+        </div>
 
-        <Link href="/" className="text-xl font-semibold text-slate-900">
-          <TextRevealButton text="LOGO" />
-        </Link>
-
-        <div className="flex items-center gap-6">
+        
+        <div className="flex items-center gap-8">
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -37,18 +41,40 @@ export default function Navbar() {
               {item.label}
             </Link>
           ))}
+        </div>
 
+        
+        <div className="flex flex-1 justify-end ">
           <Button
             variant="contained"
             size="medium"
             sx={{
               borderRadius: '8px',
               fontWeight: 600,
+              textTransform: 'none', 
+              backgroundColor: '#1976d2',
+              paddingRight: '20px',
+              paddingLeft: '20px',
+              marginRight: '12px', 
+            }}
+          >
+            Report Incident
+          </Button>
+          <Button
+            variant="contained"
+            size="medium"
+            sx={{
+              borderRadius: '8px',
+              fontWeight: 600,
+              textTransform: 'none', 
+              backgroundColor: '#1976d2', 
             }}
           >
             Login
           </Button>
+          
         </div>
+
       </div>
     </nav>
   );
