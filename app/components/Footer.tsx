@@ -1,4 +1,4 @@
-
+import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
 
 const Footer = () => {
   return (
@@ -8,6 +8,7 @@ const Footer = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
             <div className="size-6 bg-primary/50 rounded flex items-center justify-center text-white">
+              <HealthAndSafetyIcon />
             </div>
             <span className="text-sm font-bold text-white dark:text-white">LOGO</span>
           </div>
