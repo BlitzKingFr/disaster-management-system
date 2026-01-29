@@ -4,7 +4,7 @@ import "./globals.css";
 import "leaflet/dist/leaflet.css";
 import Navbar from "./Home Page/Navbar";
 import Footer from "./Home Page/Footer";
-import { SessionProvider } from "@/components/SessionProvider";
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,10 +40,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         
-        <SessionProvider>
+        
           <Navbar/>
         {children}
-        </SessionProvider>
+        
         <Footer />
       </body>
     </html>
