@@ -1,6 +1,6 @@
-import Map from "./components/Map";
-import Header from "./components/Main";
-import Footer from "./components/Footer";
+import Map from "./Utilities/Map";
+import Header from "./Home Page/Main";
+import Footer from "./Home Page/Footer";
 export default function Home() {
   return (
     <div>
