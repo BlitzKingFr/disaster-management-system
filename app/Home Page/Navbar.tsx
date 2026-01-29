@@ -21,6 +21,9 @@ export default function Navbar() {
   const handleLogin = () => {
     router.push("/NavPages/Login");
   };
+  const handleReportIncident = () => {
+    router.push("/NavPages/ReportIncident");
+  }
   const pathname = usePathname();
 
   return (
@@ -64,6 +67,7 @@ export default function Navbar() {
               paddingLeft: '20px',
               marginRight: '12px', 
             }}
+            onClick={handleReportIncident}
           >
             
             Report Incident

@@ -1,13 +1,19 @@
-
+"use client";
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import WarningIcon from '@mui/icons-material/Warning';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import ContactPhoneIcon from '@mui/icons-material/ContactPhone';
-
+import { useRouter } from "next/navigation";
 
 const Main = () => {
+
+  const router = useRouter();
+
+  const handleReportIncident = () => {
+    router.push("/NavPages/ReportIncident");
+  }
   return (
     <main>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -26,9 +32,11 @@ const Main = () => {
                     Coordinate emergency responses, manage field personnel, and allocate resources
                     efficiently across multiple sectors in high-stress scenarios.
                   </p>
+                  {/* Buttons*/}
                   <div className="flex flex-wrap gap-4">
                     <button
-                      className="flex min-w-[160px] cursor-pointer items-center justify-center rounded-lg h-12 px-6 bg-primary text-white text-base font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all">
+                      className="flex min-w-[160px] cursor-pointer items-center justify-center rounded-lg h-12 px-6 bg-primary text-white text-base font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
+                      onClick={handleReportIncident}>
                       Report Incident Now
                     </button>
                     <button
@@ -38,7 +46,7 @@ const Main = () => {
                   </div>
                 </div>
               </div>
-              {/* Buttons*/}
+              
               <div className="absolute inset-0 z-0">
                 <div className="absolute inset-0 bg-primary/10 mix-blend-overlay"></div>
                 <img className="w-full h-full object-cover opacity-60 grayscale-[50%]"
