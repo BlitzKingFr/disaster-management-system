@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import clsx from 'clsx';
 import { TextRevealButton } from "@/components/ui/shadcn-io/text-reveal-button";
 import { Button } from '@mui/material';
+import { useRouter } from "next/navigation";
 
 const navItems = [
   { label: 'Home', href: '/' },
@@ -14,6 +15,12 @@ const navItems = [
 ];
 
 export default function Navbar() {
+
+  const router = useRouter();
+
+  const handleLogin = () => {
+    router.push("/NavPages/Login");
+  };
   const pathname = usePathname();
 
   return (
@@ -58,6 +65,7 @@ export default function Navbar() {
               marginRight: '12px', 
             }}
           >
+            
             Report Incident
           </Button>
           <Button
@@ -68,7 +76,9 @@ export default function Navbar() {
               fontWeight: 600,
               textTransform: 'none', 
               backgroundColor: '#1976d2', 
+              
             }}
+            onClick={handleLogin}
           >
             Login
           </Button>
