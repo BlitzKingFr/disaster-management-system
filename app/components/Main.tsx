@@ -203,9 +203,9 @@ const Main = () => {
                 </h4>
                 <ul className="text-xs text-slate-600 dark:text-slate-300 space-y-2">
                   <li className="flex justify-between"><span>Fire/Rescue:</span> <span
-                    className="font-bold">9-1-1</span></li>
+                    className="font-bold">1-0-0</span></li>
                   <li className="flex justify-between"><span>DMS HQ:</span> <span
-                    className="font-bold">1-800-DMS-BASE</span></li>
+                    className="font-bold">1000-DMS-69</span></li>
                   <li className="flex justify-between"><span>Logistics:</span> <span className="font-bold">EXT
                     402</span></li>
                 </ul>
