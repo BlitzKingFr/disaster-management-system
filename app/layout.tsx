@@ -4,6 +4,7 @@ import "./globals.css";
 import "leaflet/dist/leaflet.css";
 import Navbar from "./Home Page/Navbar";
 import Footer from "./Home Page/Footer";
+import { SessionProvider } from "next-auth/react";
 
 
 const geistSans = Geist({
@@ -40,9 +41,10 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         
-        
+        <SessionProvider>
           <Navbar/>
         {children}
+        </SessionProvider>
         
         <Footer />
       </body>
