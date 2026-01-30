@@ -21,7 +21,7 @@ const ReportPage = () => {
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
 
     const handleCancel = () => {
-        router.push("/dashboard"); // navigate back
+        router.push("/"); // navigate back
     };
 
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -29,7 +29,7 @@ const ReportPage = () => {
         // Here you can call your API to save report
         console.log({ disasterType, severity, description, location });
         alert("Report submitted successfully!");
-        router.push("/dashboard");
+        router.push("/");
     };
 
     return (
