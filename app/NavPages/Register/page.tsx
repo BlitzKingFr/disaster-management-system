@@ -61,7 +61,7 @@ export default function RegisterPage() {
       }
 
       // Redirect to login after successful registration
-      router.push('/login?registered=true');
+      router.push('/NavPages/Login?registered=true');
     } catch (error: any) {
       setError(error.message);
     } finally {
@@ -171,7 +171,7 @@ export default function RegisterPage() {
         <div className="text-center mt-4">
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Already have an account?{' '}
-            <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
+            <Link href="/NavPages/Login" className="font-medium text-blue-600 hover:text-blue-500">
               Sign in here
             </Link>
           </p>

@@ -1,6 +1,10 @@
+
 import { auth } from "@/app/auth";
 import { redirect } from "next/navigation";
 import Image from "next/image";
+import { Button } from "@mui/material";
+import LogoutIcon from "@mui/icons-material/Logout";
+import { signOut } from "next-auth/react";
 
 export default async function UserPage() {
   const session = await auth();
@@ -33,6 +37,13 @@ export default async function UserPage() {
             )}
           </div>
         </div>
+        <a
+          href="/api/auth/signout?callbackUrl=/"
+          className="inline-flex items-center gap-2 px-4 py-2 border border-red-500 text-red-600 rounded-md"
+        >
+          Logout
+        </a>
+
 
         <p className="text-sm text-gray-600 dark:text-gray-400">
           This is your account area. More profile details and settings can be added here later.
