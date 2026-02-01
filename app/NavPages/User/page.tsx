@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Button } from "@mui/material";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { signOut } from "next-auth/react";
-
+import LogoutButton from "@/app/Utilities/LogoutButton";
 export default async function UserPage() {
   const session = await auth();
 
@@ -37,12 +37,7 @@ export default async function UserPage() {
             )}
           </div>
         </div>
-        <a
-          href="/api/auth/signout?callbackUrl=/"
-          className="inline-flex items-center gap-2 px-4 py-2 border border-red-500 text-red-600 rounded-md"
-        >
-          Logout
-        </a>
+        <LogoutButton />
 
 
         <p className="text-sm text-gray-600 dark:text-gray-400">
