@@ -14,7 +14,7 @@ import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-// Merge sort: sort by severity (desc), then by createdAt (desc)
+
 function mergeSort<T>(arr: T[], compare: (a: T, b: T) => number): T[] {
   if (arr.length <= 1) return arr;
   const mid = Math.floor(arr.length / 2);
@@ -61,8 +61,8 @@ const Main = () => {
       .then((data) => {
         if (Array.isArray(data)) {
           const sorted = mergeSort(data, (a, b) => {
-            if (a.severity !== b.severity) return b.severity - a.severity;
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            if (a.severity !== b.severity) return a.severity - b.severity;
+            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           });
           setIncidents(sorted);
         }

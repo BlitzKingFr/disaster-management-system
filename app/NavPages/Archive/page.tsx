@@ -101,8 +101,8 @@ export default function ArchivePage() {
       .then((data) => {
         if (Array.isArray(data)) {
           const sorted = mergeSort(data, (a, b) => {
-            if (a.severity !== b.severity) return b.severity - a.severity;
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            if (a.severity !== b.severity) return a.severity - b.severity;
+            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           });
           setIncidents(sorted);
         }

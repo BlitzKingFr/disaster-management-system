@@ -40,7 +40,7 @@ export default function Navbar() {
       <div className="flex w-full items-center px-6 py-4">
         <div className="flex flex-1 justify-start">
           <Link href="/" className="text-xl font-semibold text-slate-900">
-            <TextRevealButton text="LOGO" />
+            <TextRevealButton text="DisasterMS" />
           </Link>
         </div>
 
