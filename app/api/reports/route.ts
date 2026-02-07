@@ -3,6 +3,26 @@ import { connectDB } from "@/lib/mongodb";
 import Incident from "@/lib/models/Incident";
 import { auth } from "@/app/auth";
 
+export async function GET(req: Request) {
+  try {
+    await connectDB();
+    const { searchParams } = new URL(req.url);
+    const archive = searchParams.get("archive") === "true";
+    const filter = archive ? {} : { status: { $ne: "resolved" } };
+    const incidents = await Incident.find(filter)
+      .select("disasterType severity description address status createdAt")
+      .lean()
+      .sort({ createdAt: -1 });
+    return NextResponse.json(incidents);
+  } catch (err) {
+    console.error("Fetch incidents error:", err);
+    return NextResponse.json(
+      { error: "Failed to fetch incidents." },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const session = await auth();
