@@ -19,17 +19,49 @@ const ReportPage = () => {
     const [severity, setSeverity] = useState(5);
     const [description, setDescription] = useState("");
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+    const [address, setAddress] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
 
     const handleCancel = () => {
-        router.push("/"); // navigate back
+        router.push("/"); 
     };
 
-    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        // Here you can call your API to save report
-        console.log({ disasterType, severity, description, location });
-        alert("Report submitted successfully!");
-        router.push("/");
+        setError("");
+
+        if (!location) {
+            setError("Please click on the map to select the incident location.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const res = await fetch("/api/reports", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    disasterType,
+                    severity,
+                    description,
+                    location: { lat: location.lat, lng: location.lng },
+                    address: address.trim(),
+                }),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "Failed to submit report");
+            }
+
+            alert("Report submitted successfully!");
+            router.push("/");
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : "Failed to submit report");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -102,7 +134,7 @@ const ReportPage = () => {
                                     </p>
                                 </div>
                                 <form className="space-y-10" onSubmit={handleSubmit}>
-                                    {/* Section 1 - Incident Type */}
+                                    {/*  Incident Type */}
                                     <section>
                                         <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4">
                                             Section 1: Incident Type
@@ -140,7 +172,7 @@ const ReportPage = () => {
                                         </div>
                                     </section>
 
-                                    {/* Section 2 - Details & Severity */}
+                                    {/*  Details & Severity */}
                                     <section>
                                         <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4">
                                             Section 2: Details & Severity
@@ -187,28 +219,43 @@ const ReportPage = () => {
                                         </div>
                                     </section>
 
-                                    {/* Section 3 - Location */}
+                                    {/*  Location */}
                                     <section>
                                         <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-4">
                                             Section 3: Incident Location
                                         </h3>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                                            Click on the map to pinpoint the incident area
+                                        </p>
                                         <Map
                                             onLocationSelect={(lat, lng) => setLocation({ lat, lng })}
-                                            initialPosition={[27.7172, 85.3240]}
+                                            initialPosition={[26.629307, 87.982475]}
                                         />
-                                        {location && (
-                                            <p className="text-xs mt-2 text-slate-500 dark:text-slate-400">
-                                                Selected Location: {location.lat.toFixed(4)}°, {location.lng.toFixed(4)}°
+                                        {location ? (
+                                            <p className="text-xs mt-2 text-green-600 dark:text-green-400 font-medium">
+                                                Selected area: {location.lat.toFixed(4)}°, {location.lng.toFixed(4)}°
+                                            </p>
+                                        ) : (
+                                            <p className="text-xs mt-2 text-amber-600 dark:text-amber-400">
+                                                No location selected — click the map above
                                             </p>
                                         )}
                                         <input
                                             type="text"
                                             placeholder="Street address or landmark (optional)"
+                                            value={address}
+                                            onChange={(e) => setAddress(e.target.value)}
                                             className="w-full rounded-lg border-slate-200 dark:border-[#493222] bg-slate-50 dark:bg-white/5 text-sm text-slate-900 dark:text-white p-2 mt-2"
                                         />
                                     </section>
 
-                                    {/* Section 4 - Visual Evidence (skip file upload for now) */}
+                                    {error && (
+                                        <p className="text-sm text-red-600 dark:text-red-400 font-medium">
+                                            {error}
+                                        </p>
+                                    )}
+
+                                    {/*  Visual Evidence (skip file upload for now) */}
 
                                     <div className="pt-6 border-t border-slate-200 dark:border-[#493222] flex flex-col sm:flex-row gap-4">
                                         <button
@@ -220,9 +267,12 @@ const ReportPage = () => {
                                         </button>
                                         <button
                                             type="submit"
-                                            className="flex-[2] h-14 bg-primary text-white font-black text-lg rounded-xl shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
+                                            disabled={loading}
+                                            className="flex-[2] h-14 bg-primary text-white font-black text-lg rounded-xl shadow-lg shadow-primary/30 hover:bg-primary/90 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                                         >
-                                            <span className="material-symbols-outlined">send</span>
+                                            {loading ? "Submitting…" : (
+                                                <span className="material-symbols-outlined">send</span>
+                                            )}
                                         </button>
                                     </div>
                                 </form>

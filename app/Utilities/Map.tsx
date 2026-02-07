@@ -11,7 +11,7 @@ interface MapProps {
 
 export default function Map({
   onLocationSelect,
-  initialPosition = [27.7172, 85.3240],
+  initialPosition = [26.629307, 87.982475],
   zoom = 13,
 }: MapProps) {
   useEffect(() => {
