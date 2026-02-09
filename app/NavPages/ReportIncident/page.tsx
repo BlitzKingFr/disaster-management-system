@@ -229,7 +229,7 @@ const ReportPage = () => {
                                         </p>
                                         <Map
                                             onLocationSelect={(lat, lng) => setLocation({ lat, lng })}
-                                            initialPosition={[26.629307, 87.982475]}
+                                            initialPosition={[27.7100, 85.3147]}
                                         />
                                         {location ? (
                                             <p className="text-xs mt-2 text-green-600 dark:text-green-400 font-medium">

@@ -10,8 +10,8 @@ export function cn(...inputs: ClassValue[]) {
 // -----------------------------
 
 export const BASE_COORDS = {
-  lat: 26.629307,
-  lng: 87.982475,
+  lat: 27.7100,
+  lng: 85.3147,
 };
 
 export type GraphNodeId = string;
