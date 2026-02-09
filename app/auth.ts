@@ -76,6 +76,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.picture = user.image;
         token.role = (user as { role?: string }).role;
       }
+
+      // Always sync with MongoDB to get our internal _id and latest role
+      if (token.email) {
+        try {
+          await connectDB();
+          const dbUser = await User.findOne({ email: token.email }).select("role _id");
+          if (dbUser) {
+            token.id = dbUser._id.toString(); // Use internal MongoDB ID
+            token.role = dbUser.role;
+          }
+        } catch (error) {
+          console.error("JWT sync error:", error);
+        }
+      }
       return token;
     },
 

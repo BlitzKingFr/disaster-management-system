@@ -25,7 +25,7 @@ export const POST = async (request: Request) => {
 
         await connectDB();
         const user = await User.findOne({ email: session.user.email });
-        if (!user || user.role !== "Admin") {
+        if (!user || user.role.toLowerCase() !== "admin") {
             return new NextResponse("Forbidden: Admins only", { status: 403 });
         }
 

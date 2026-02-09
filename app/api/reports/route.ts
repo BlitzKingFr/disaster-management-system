@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Incident from "@/lib/models/Incident";
+import Resource from "@/lib/models/Resource"; // Ensure Resource model is registered
 import { auth } from "@/app/auth";
 
 export async function GET(req: Request) {
@@ -10,7 +11,7 @@ export async function GET(req: Request) {
     const archive = searchParams.get("archive") === "true";
     const filter = archive ? {} : { status: { $ne: "resolved" } };
     const incidents = await Incident.find(filter)
-      .select("disasterType severity description address status createdAt")
+      .populate("allocatedResources.resourceId", "name")
       .lean()
       .sort({ createdAt: -1 });
     return NextResponse.json(incidents);

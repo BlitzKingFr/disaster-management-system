@@ -10,7 +10,7 @@ export const PATCH = async (
     request: Request,
     { params }: { params: { id: string } }
 ) => {
-    const { id } = params;
+    const { id } = await params;
 
     try {
         const session = await auth();
@@ -22,7 +22,7 @@ export const PATCH = async (
         const user = await User.findOne({ email: session.user.email });
 
         // Authorization check
-        if (!user || user.role !== "Admin") {
+        if (!user || user.role.toLowerCase() !== "admin") {
             // Ideally restricted to Admin, but potentially Dispatchers too?
             // For now, let's stick to Admin as requested.
             return new NextResponse("Forbidden", { status: 403 });
@@ -35,21 +35,18 @@ export const PATCH = async (
             return new NextResponse("Incident not found", { status: 404 });
         }
 
-        // Start transaction session for atomicity (Resource alloc + Incident update)
-        const dbSession = await mongoose.startSession();
-        dbSession.startTransaction();
-
+        // Perform sequential updates (Stand-alone DB compatible)
         try {
             // 1. Update Assignment
             if (assignedTo) {
                 incident.assignedTo = assignedTo;
-                incident.status = "assigned"; // Update status
+                incident.status = "assigned";
             }
 
             // 2. Handle Resource Allocation
             if (allocatedResources && Array.isArray(allocatedResources)) {
                 for (const alloc of allocatedResources) {
-                    const resource = await Resource.findById(alloc.resourceId).session(dbSession);
+                    const resource = await Resource.findById(alloc.resourceId);
 
                     if (!resource) {
                         throw new Error(`Resource ${alloc.resourceId} not found`);
@@ -62,7 +59,7 @@ export const PATCH = async (
                     // Deduct from inventory
                     resource.quantity -= alloc.quantity;
                     if (resource.quantity === 0) resource.status = "Depleted";
-                    await resource.save({ session: dbSession });
+                    await resource.save();
 
                     // Add to incident
                     incident.allocatedResources.push({
@@ -73,16 +70,11 @@ export const PATCH = async (
                 }
             }
 
-            await incident.save({ session: dbSession });
-            await dbSession.commitTransaction();
-
+            await incident.save();
             return new NextResponse(JSON.stringify(incident), { status: 200 });
 
         } catch (error: any) {
-            await dbSession.abortTransaction();
             return new NextResponse(error.message, { status: 400 });
-        } finally {
-            dbSession.endSession();
         }
 
     } catch (err: any) {
