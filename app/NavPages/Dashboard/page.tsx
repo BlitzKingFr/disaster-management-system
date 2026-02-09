@@ -1,8 +1,20 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Button, Dialog, DialogTitle, DialogContent, DialogActions, MenuItem, TextField, Chip, CircularProgress } from "@mui/material";
+import {
+    Button,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    MenuItem,
+    TextField,
+    Chip,
+    CircularProgress,
+} from "@mui/material";
 import { useSession } from "next-auth/react";
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
+import { BASE_COORDS, dijkstra, haversineDistance, type Graph } from "@/lib/utils";
+import RouteMap from "@/app/Utilities/RouteMap";
 
 interface Incident {
     _id: string;
@@ -14,6 +26,11 @@ interface Incident {
     severity: number;
     createdAt: string;
     allocatedResources: any[];
+    location?: {
+        lat: number;
+        lng: number;
+    };
+    address?: string;
 }
 
 interface Agent {
@@ -271,6 +288,85 @@ function AdminDashboard({ incidents, onAssign }: { incidents: Incident[], onAssi
 }
 
 function AgentDashboard({ myAssignments }: { myAssignments: Incident[] }) {
+    const [roadRoutes, setRoadRoutes] = useState<Record<string, [number, number][] | null>>({});
+
+    // Fetch road-following routes for each assignment using the backend proxy.
+    useEffect(() => {
+        const fetchRoutes = async () => {
+            const entries = await Promise.all(
+                myAssignments.map(async (incident) => {
+                    if (!incident.location) return [incident._id, null] as const;
+                    try {
+                        const res = await fetch("/api/routes/road", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                from: { lat: BASE_COORDS.lat, lng: BASE_COORDS.lng },
+                                to: {
+                                    lat: incident.location.lat,
+                                    lng: incident.location.lng,
+                                },
+                            }),
+                        });
+
+                        if (!res.ok) {
+                            console.warn("Road route failed for incident", incident._id);
+                            return [incident._id, null] as const;
+                        }
+                        const data = await res.json();
+                        return [incident._id, (data.path as [number, number][]) || null] as const;
+                    } catch (e) {
+                        console.warn("Road route error for incident", incident._id, e);
+                        return [incident._id, null] as const;
+                    }
+                })
+            );
+
+            const map: Record<string, [number, number][] | null> = {};
+            for (const [id, path] of entries) {
+                map[id] = path;
+            }
+            setRoadRoutes(map);
+        };
+
+        if (myAssignments.length > 0) {
+            fetchRoutes();
+        } else {
+            setRoadRoutes({});
+        }
+    }, [myAssignments]);
+    const buildSimpleRouteGraph = (incident: Incident): { distanceKm: number; path: string[] } | null => {
+        if (!incident.location) return null;
+
+        const incidentNodeId = `INCIDENT_${incident._id}`;
+
+        const graph: Graph = {
+            BASE: [
+                {
+                    to: incidentNodeId,
+                    weight: haversineDistance(
+                        BASE_COORDS.lat,
+                        BASE_COORDS.lng,
+                        incident.location.lat,
+                        incident.location.lng
+                    ),
+                },
+            ],
+        };
+
+        // Make graph undirected by mirroring the edge back to BASE
+        graph[incidentNodeId] = [
+            {
+                to: "BASE",
+                weight: graph.BASE[0].weight,
+            },
+        ];
+
+        const result = dijkstra(graph, "BASE", incidentNodeId);
+        if (!result) return null;
+        return { distanceKm: result.distance, path: result.path };
+    };
+
     return (
         <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-md border border-gray-200 dark:border-gray-800">
             <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Active Missions</h2>
@@ -284,13 +380,28 @@ function AgentDashboard({ myAssignments }: { myAssignments: Incident[] }) {
             ) : (
                 <div className="grid gap-6">
                     {myAssignments.map((incident) => (
-                        <div key={incident._id} className="border dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-5 rounded-lg flex flex-col md:flex-row justify-between items-start gap-4">
-                            <div className="flex-1">
+                        <div
+                            key={incident._id}
+                            className="border dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-5 rounded-lg flex flex-col md:flex-row justify-between items-start gap-4"
+                        >
+                            <div className="flex-1 space-y-3">
                                 <div className="flex items-center gap-2 mb-2">
                                     <h3 className="text-lg font-bold text-red-600">{incident.disasterType}</h3>
                                     <span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded">Priority: {incident.severity}</span>
                                 </div>
                                 <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 leading-relaxed">{incident.description}</p>
+                                <div className="text-xs text-gray-500 space-y-1">
+                                    {incident.address && (
+                                        <p><span className="font-semibold">Location:</span> {incident.address}</p>
+                                    )}
+                                    {incident.location && (
+                                        <p>
+                                            <span className="font-semibold">Coordinates:</span>{" "}
+                                            {incident.location.lat.toFixed(5)}, {incident.location.lng.toFixed(5)}
+                                        </p>
+                                    )}
+                                </div>
+
                                 <div className="flex flex-wrap gap-2">
                                     {incident.allocatedResources?.length > 0 ? (
                                         incident.allocatedResources.map((res: any, idx: number) => (
@@ -306,6 +417,48 @@ function AgentDashboard({ myAssignments }: { myAssignments: Incident[] }) {
                                         <span className="text-xs text-gray-400">No resources allocated</span>
                                     )}
                                 </div>
+
+                                {/* Route info using Dijkstra from HQ/base to incident */}
+                                {(() => {
+                                    const route = buildSimpleRouteGraph(incident);
+                                    if (!route) return null;
+
+                                    return (
+                                        <div className="mt-2 text-xs text-gray-500 border-t border-dashed border-gray-300 pt-2">
+                                            <p className="font-semibold mb-1">Route from Base (Dijkstra):</p>
+                                            <p>
+                                                <span className="font-medium">Base</span> ({BASE_COORDS.lat.toFixed(5)},{" "}
+                                                {BASE_COORDS.lng.toFixed(5)}) →{" "}
+                                                <span className="font-medium">Incident Site</span>{" "}
+                                                {incident.location
+                                                    ? `(${incident.location.lat.toFixed(5)}, ${incident.location.lng.toFixed(5)})`
+                                                    : ""}
+                                            </p>
+                                            <p className="mt-1">
+                                                <span className="font-medium">Shortest distance:</span>{" "}
+                                                {route.distanceKm.toFixed(2)} km
+                                            </p>
+                                            {incident.location && (
+                                                <div className="mt-3">
+                                                    <RouteMap
+                                                        from={{
+                                                            lat: BASE_COORDS.lat,
+                                                            lng: BASE_COORDS.lng,
+                                                            label: "Base",
+                                                        }}
+                                                        to={{
+                                                            lat: incident.location.lat,
+                                                            lng: incident.location.lng,
+                                                            label: "Incident",
+                                                        }}
+                                                        roadPath={roadRoutes[incident._id] || undefined}
+                                                        zoom={13}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
                             </div>
                             <div className="flex flex-col items-end gap-2">
                                 <span className="text-xs text-gray-400">Assigned: {new Date(incident.createdAt).toLocaleDateString()}</span>

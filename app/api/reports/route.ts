@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/mongodb";
 import Incident from "@/lib/models/Incident";
-import Resource from "@/lib/models/Resource"; // Ensure Resource model is registered
+// Import Resource model for its side‑effects so Mongoose registers the schema
+import "@/lib/models/Resource";
 import { auth } from "@/app/auth";
 
 export async function GET(req: Request) {
