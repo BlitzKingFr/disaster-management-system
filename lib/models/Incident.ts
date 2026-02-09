@@ -5,7 +5,7 @@ const IncidentSchema = new Schema(
     disasterType: { type: String, required: true },
     severity: { type: Number, required: true, min: 1, max: 5 },
     description: { type: String, required: true },
-    
+
     location: {
       lat: { type: Number, required: true },
       lng: { type: Number, required: true },
@@ -13,8 +13,22 @@ const IncidentSchema = new Schema(
     // Optional street address or landmark
     address: { type: String, default: "" },
     // User who reported - stores session user id (ObjectId string or OAuth UUID)
+    // User who reported - stores session user id (ObjectId string or OAuth UUID)
     reportedBy: { type: String },
-    status: { type: String, default: "pending", enum: ["pending", "verified", "in_progress", "resolved"] },
+
+    // Field Agent Assignment
+    assignedTo: { type: Schema.Types.ObjectId, ref: "User" },
+
+    // Resource Allocation
+    allocatedResources: [
+      {
+        resourceId: { type: Schema.Types.ObjectId, ref: "Resource" },
+        name: { type: String }, // Store name for easier display
+        quantity: { type: Number, required: true },
+      }
+    ],
+
+    status: { type: String, default: "pending", enum: ["pending", "verified", "assigned", "in_progress", "resolved"] },
   },
   { timestamps: true }
 );

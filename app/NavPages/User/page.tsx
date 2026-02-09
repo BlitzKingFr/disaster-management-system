@@ -2,12 +2,12 @@
 import { auth } from "@/app/auth";
 import { redirect } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/lib/models/User";
 import Incident from "@/lib/models/Incident";
 import LogoutButton from "@/app/Utilities/LogoutButton";
 import { Button } from "@mui/material";
+import Link from "next/link";
 
 export default async function UserPage() {
   const session = await auth();
@@ -83,8 +83,42 @@ export default async function UserPage() {
               </span>
             </div>
 
-            <div className="pt-2">
-              {/* We can style a wrapper around the logout button or leave it as is for functionality */}
+            {/* Role-Based Action Button */}
+            <div className="pt-2 flex flex-wrap gap-3">
+              {(() => {
+                const role = (mongoUser.role || "citizen").toLowerCase();
+                let buttonConfig = {
+                  text: "Report Incident",
+                  href: "/NavPages/ReportIncident",
+                  className: "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white shadow-lg shadow-orange-500/20"
+                };
+
+                if (role.includes("admin")) {
+                  buttonConfig = {
+                    text: "Admin Dashboard",
+                    href: "/NavPages/Dashboard", // Assuming this is the correct route based on earlier check, if not it might be /NavPages/Admin
+                    className: "bg-slate-800 hover:bg-slate-900 text-white shadow-lg shadow-slate-500/20 dark:bg-slate-700 dark:hover:bg-slate-600"
+                  };
+                } else if (role.includes("dispatcher")) {
+                  buttonConfig = {
+                    text: "Mission Control",
+                    href: "/NavPages/Dashboard", // Using Dashboard as placeholder or if shared
+                    className: "bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20"
+                  };
+                }
+
+                return (
+                  <Link href={buttonConfig.href}>
+                    <Button
+                      variant="contained"
+                      className={`!capitalize !font-bold !py-2 !px-6 !rounded-xl ${buttonConfig.className}`}
+                    >
+                      {buttonConfig.text}
+                    </Button>
+                  </Link>
+                );
+              })()}
+
               <div className="inline-block">
                 <LogoutButton />
               </div>

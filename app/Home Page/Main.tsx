@@ -50,7 +50,15 @@ export type IncidentItem = {
   createdAt: string;
 };
 
-const Main = () => {
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+  [key: string]: any;
+}
+
+const Main = ({ user }: { user?: User | null }) => {
   const router = useRouter();
   const [incidents, setIncidents] = useState<IncidentItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,6 +82,36 @@ const Main = () => {
   const handleReportIncident = () => {
     router.push("/NavPages/ReportIncident");
   };
+
+  // Determine button configuration based on role
+  const getButtonConfig = () => {
+    const role = (user?.role || "citizen").toLowerCase();
+
+    if (role.includes("admin")) {
+      return {
+        text: "Admin Dashboard",
+        action: () => router.push("/NavPages/Dashboard"),
+        className: "bg-slate-800 text-white shadow-lg shadow-slate-500/20 hover:bg-slate-900"
+      };
+    }
+
+    if (role.includes("dispatcher")) {
+      return {
+        text: "Mission Control",
+        action: () => router.push("/NavPages/Dashboard"),
+        className: "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-700"
+      };
+    }
+
+    // Default / Citizen
+    return {
+      text: "Report Incident Now",
+      action: handleReportIncident,
+      className: "bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary/90"
+    };
+  };
+
+  const buttonConfig = getButtonConfig();
 
   const formatTime = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -100,9 +138,9 @@ const Main = () => {
                   {/* Buttons*/}
                   <div className="flex flex-wrap gap-4">
                     <button
-                      className="flex min-w-[160px] cursor-pointer items-center justify-center rounded-lg h-12 px-6 bg-primary text-white text-base font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
-                      onClick={handleReportIncident}>
-                      Report Incident Now
+                      className={`flex min-w-[160px] cursor-pointer items-center justify-center rounded-lg h-12 px-6 text-base font-bold transition-all ${buttonConfig.className}`}
+                      onClick={buttonConfig.action}>
+                      {buttonConfig.text}
                     </button>
                     <button
                       className="flex min-w-[160px] cursor-pointer items-center justify-center rounded-lg h-12 px-6 bg-white/10 backdrop-blur-md border border-white/20 text-white text-base font-bold hover:bg-white/20 transition-all">
@@ -111,7 +149,7 @@ const Main = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="absolute inset-0 z-0">
                 <div className="absolute inset-0 bg-primary/10 mix-blend-overlay"></div>
                 <img className="w-full h-full object-cover opacity-60 grayscale-[50%]"
