@@ -1,5 +1,6 @@
 "use client";
 import Map from "@/app/Utilities/Map";
+import { BASE_COORDS } from "@/lib/utils";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
@@ -24,7 +25,7 @@ const ReportPage = () => {
     const [error, setError] = useState("");
 
     const handleCancel = () => {
-        router.push("/"); 
+        router.push("/");
     };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -229,7 +230,7 @@ const ReportPage = () => {
                                         </p>
                                         <Map
                                             onLocationSelect={(lat, lng) => setLocation({ lat, lng })}
-                                            initialPosition={[27.7100, 85.3147]}
+                                            initialPosition={[BASE_COORDS.lat, BASE_COORDS.lng]}
                                         />
                                         {location ? (
                                             <p className="text-xs mt-2 text-green-600 dark:text-green-400 font-medium">

@@ -44,28 +44,31 @@ export async function POST(req: Request) {
       );
     }
 
-    // OpenRouteService expects coordinates as [lng, lat]
-    const orsRes = await fetch("https://api.openrouteservice.org/v2/directions/driving-car", {
-      method: "POST",
+    // Use the GET format from the user's example for maximum compatibility
+    const url = new URL("https://api.openrouteservice.org/v2/directions/driving-car");
+    url.searchParams.append("api_key", apiKey);
+    url.searchParams.append("start", `${body.from.lng},${body.from.lat}`);
+    url.searchParams.append("end", `${body.to.lng},${body.to.lat}`);
+
+    const orsRes = await fetch(url.toString(), {
       headers: {
-        "Content-Type": "application/json",
-        Authorization: apiKey,
-      },
-      body: JSON.stringify({
-        coordinates: [
-          [body.from.lng, body.from.lat],
-          [body.to.lng, body.to.lat],
-        ],
-      }),
+        "Accept": "application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8"
+      }
     });
 
     if (!orsRes.ok) {
       const text = await orsRes.text();
-      console.error("OpenRouteService error:", orsRes.status, text);
-      return NextResponse.json(
-        { error: "Failed to fetch road route from routing service." },
-        { status: 502 }
-      );
+      console.warn("OpenRouteService error or limit reached:", orsRes.status, text);
+
+      // Fallback: routing service error (e.g., too far, server down, etc.)
+      // Return a straight line so the frontend caches a result and stops hitting the API
+      return NextResponse.json({
+        path: [
+          [body.from.lat, body.from.lng],
+          [body.to.lat, body.to.lng],
+        ],
+        warning: "Routing service limit reached or error. Used straight-line fallback."
+      });
     }
 
     const data = await orsRes.json();

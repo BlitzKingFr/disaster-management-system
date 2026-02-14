@@ -293,9 +293,23 @@ function AgentDashboard({ myAssignments }: { myAssignments: Incident[] }) {
     // Fetch road-following routes for each assignment using the backend proxy.
     useEffect(() => {
         const fetchRoutes = async () => {
+            // Load existing cache from localStorage
+            const cachedRoutesStr = localStorage.getItem("dms_road_routes");
+            const cachedRoutes: Record<string, [number, number][]> = cachedRoutesStr ? JSON.parse(cachedRoutesStr) : {};
+
+            const newRoutes: Record<string, [number, number][] | null> = { ...roadRoutes };
+            let hasNew = false;
+
             const entries = await Promise.all(
                 myAssignments.map(async (incident) => {
                     if (!incident.location) return [incident._id, null] as const;
+
+                    // Check if already in state or cache
+                    if (roadRoutes[incident._id]) return [incident._id, roadRoutes[incident._id]] as const;
+                    if (cachedRoutes[incident._id]) {
+                        return [incident._id, cachedRoutes[incident._id]] as const;
+                    }
+
                     try {
                         const res = await fetch("/api/routes/road", {
                             method: "POST",
@@ -314,7 +328,12 @@ function AgentDashboard({ myAssignments }: { myAssignments: Incident[] }) {
                             return [incident._id, null] as const;
                         }
                         const data = await res.json();
-                        return [incident._id, (data.path as [number, number][]) || null] as const;
+                        const path = (data.path as [number, number][]) || null;
+                        if (path) {
+                            cachedRoutes[incident._id] = path;
+                            hasNew = true;
+                        }
+                        return [incident._id, path] as const;
                     } catch (e) {
                         console.warn("Road route error for incident", incident._id, e);
                         return [incident._id, null] as const;
@@ -327,6 +346,10 @@ function AgentDashboard({ myAssignments }: { myAssignments: Incident[] }) {
                 map[id] = path;
             }
             setRoadRoutes(map);
+
+            if (hasNew) {
+                localStorage.setItem("dms_road_routes", JSON.stringify(cachedRoutes));
+            }
         };
 
         if (myAssignments.length > 0) {

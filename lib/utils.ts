@@ -10,8 +10,8 @@ export function cn(...inputs: ClassValue[]) {
 // -----------------------------
 
 export const BASE_COORDS = {
-  lat: 27.7100,
-  lng: 85.3147,
+  lat: 52.5200,
+  lng: 13.4050,
 };
 
 export type GraphNodeId = string;
@@ -41,9 +41,9 @@ export function haversineDistance(
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
+    Math.cos(toRad(lat2)) *
+    Math.sin(dLng / 2) *
+    Math.sin(dLng / 2);
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
@@ -63,12 +63,22 @@ export function dijkstra(
   const previous: Record<GraphNodeId, GraphNodeId | null> = {};
   const visited = new Set<GraphNodeId>();
 
-  for (const node of Object.keys(graph)) {
+  // Initialize nodes. We must ensure all nodes appearing in 'to' fields are also initialized.
+  const allNodes = new Set<GraphNodeId>();
+  for (const [node, edges] of Object.entries(graph)) {
+    allNodes.add(node);
+    for (const edge of edges) {
+      allNodes.add(edge.to);
+    }
+  }
+
+  if (!allNodes.has(start) || !allNodes.has(target)) {
+    return null;
+  }
+
+  for (const node of allNodes) {
     distances[node] = Infinity;
     previous[node] = null;
-  }
-  if (!(start in graph) || !(target in graph)) {
-    return null;
   }
 
   distances[start] = 0;
@@ -77,7 +87,7 @@ export function dijkstra(
     let current: GraphNodeId | null = null;
     let minDistance = Infinity;
 
-    for (const node of Object.keys(distances)) {
+    for (const node of allNodes) {
       if (!visited.has(node) && distances[node] < minDistance) {
         minDistance = distances[node];
         current = node;
