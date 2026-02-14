@@ -250,7 +250,7 @@ const Main = ({ user }: { user?: User | null }) => {
                 ) : incidents.length === 0 ? (
                   <p className="text-slate-500 dark:text-slate-400 text-sm py-4 text-center">No active alerts</p>
                 ) : (
-                  incidents.map((inc) => {
+                  incidents.slice(0, 6).map((inc) => {
                     const cfg = DISASTER_CONFIG[inc.disasterType] ?? DISASTER_CONFIG.other;
                     const severityLabel = SEVERITY_LABELS[inc.severity - 1] ?? "Unknown";
                     const title = inc.address
