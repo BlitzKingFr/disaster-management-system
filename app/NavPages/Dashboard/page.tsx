@@ -31,6 +31,7 @@ interface Incident {
         lng: number;
     };
     address?: string;
+    fieldReport?: string;
 }
 
 interface Agent {
@@ -51,15 +52,21 @@ export default function Dashboard() {
     const [myAssignments, setMyAssignments] = useState<Incident[]>([]);
     const [agents, setAgents] = useState<Agent[]>([]);
     const [resources, setResources] = useState<Resource[]>([]);
+    const [archive, setArchive] = useState<Incident[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Modal State
     const [openAssignModal, setOpenAssignModal] = useState(false);
+    const [openStatusModal, setOpenStatusModal] = useState(false);
     const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
     const [assignmentData, setAssignmentData] = useState<{
         agentId: string;
         allocations: { resourceId: string; quantity: number }[];
     }>({ agentId: "", allocations: [] });
+
+    const [statusUpdateData, setStatusUpdateData] = useState<{
+        fieldReport: string;
+    }>({ fieldReport: "controlled" });
 
     const role = session?.user?.role?.trim()?.toLowerCase() || "";
     const isAdmin = role.includes("admin");
@@ -80,8 +87,9 @@ export default function Dashboard() {
             const incData = await incRes.json();
 
             if (isAdmin) {
-                // Admin sees unassigned or pending - fetch everything to manage
-                setIncidents(incData);
+                // Admin sees active/pending
+                setIncidents(incData.filter((i: Incident) => i.status !== "completed"));
+                setArchive(incData.filter((i: Incident) => i.status === "completed"));
 
                 // Fetch Agents
                 const agentRes = await fetch("/api/users/agents");
@@ -93,18 +101,37 @@ export default function Dashboard() {
             }
 
             if (isFieldAgent && session?.user?.id) {
-                // Filter incidents assigned to the current user
-                // Using .toString() safely to handle potential ID object/string mix
-                const assigned = incData.filter((i: Incident) =>
+                const myAll = incData.filter((i: Incident) =>
                     i.assignedTo?.toString() === session.user.id?.toString()
                 );
-                setMyAssignments(assigned);
+                setMyAssignments(myAll.filter((i: Incident) => i.status !== "completed"));
+                setArchive(myAll.filter((i: Incident) => i.status === "completed"));
             }
-            // Separate assignments logic (or use API specifically for "my-assignments")
         } catch (error) {
             console.error(error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleStatusUpdate = async () => {
+        if (!selectedIncident) return;
+        try {
+            const res = await fetch(`/api/incidents/${selectedIncident._id}/status`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ fieldReport: statusUpdateData.fieldReport })
+            });
+
+            if (res.ok) {
+                setOpenStatusModal(false);
+                fetchData();
+            } else {
+                const err = await res.text();
+                alert("Update failed: " + err);
+            }
+        } catch (error) {
+            console.error(error);
         }
     };
 
@@ -168,8 +195,17 @@ export default function Dashboard() {
                         }}
                     />
                 ) : (
-                    <AgentDashboard myAssignments={myAssignments} />
+                    <AgentDashboard
+                        myAssignments={myAssignments}
+                        onUpdateStatus={(inc) => {
+                            setSelectedIncident(inc);
+                            setOpenStatusModal(true);
+                        }}
+                    />
                 )}
+
+                {/* Archive Section */}
+                <ArchiveSection archive={archive} />
 
                 {/* Assignment Modal (Shared or Admin Only) */}
                 <Dialog open={openAssignModal} onClose={() => setOpenAssignModal(false)} maxWidth="sm" fullWidth>
@@ -229,6 +265,64 @@ export default function Dashboard() {
                         <Button onClick={handleAssign} variant="contained" color="primary">Assign & Allocate</Button>
                     </DialogActions>
                 </Dialog>
+
+                {/* Status Update Modal */}
+                <Dialog open={openStatusModal} onClose={() => setOpenStatusModal(false)} maxWidth="xs" fullWidth>
+                    <DialogTitle>Update Mission Status</DialogTitle>
+                    <DialogContent>
+                        <div className="pt-4">
+                            <TextField
+                                select
+                                label="Mission Outcome"
+                                fullWidth
+                                value={statusUpdateData.fieldReport}
+                                onChange={(e) => setStatusUpdateData({ ...statusUpdateData, fieldReport: e.target.value })}
+                            >
+                                <MenuItem value="controlled">🟢 Controlled / Safe</MenuItem>
+                                <MenuItem value="out_of_control">🔴 Out of Control / Needs Support</MenuItem>
+                            </TextField>
+                            <p className="text-xs text-gray-500 mt-4 italic">
+                                Note: Updating the status will complete the mission and archive it.
+                            </p>
+                        </div>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setOpenStatusModal(false)}>Cancel</Button>
+                        <Button onClick={handleStatusUpdate} variant="contained" color="success">Finish Mission</Button>
+                    </DialogActions>
+                </Dialog>
+            </div>
+        </div>
+    );
+}
+
+function ArchiveSection({ archive }: { archive: Incident[] }) {
+    if (archive.length === 0) return null;
+
+    return (
+        <div className="mt-12">
+            <h2 className="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-200">🗄️ Mission Archive</h2>
+            <div className="grid gap-4">
+                {archive.map((incident) => (
+                    <div key={incident._id} className="bg-white dark:bg-gray-900 border dark:border-gray-800 p-4 rounded-lg shadow-sm flex justify-between items-center">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h3 className="font-bold text-gray-700 dark:text-gray-300">{incident.disasterType}</h3>
+                                <Chip
+                                    label={incident.fieldReport === "controlled" ? "Controlled" : "Out of Control"}
+                                    size="small"
+                                    color={incident.fieldReport === "controlled" ? "success" : "error"}
+                                    variant="outlined"
+                                />
+                            </div>
+                            <p className="text-sm text-gray-500 line-clamp-1">{incident.description}</p>
+                            <p className="text-[10px] text-gray-400 mt-1">Completed: {new Date(incident.createdAt).toLocaleDateString()}</p>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-xs font-mono text-gray-400">#{incident._id.slice(-6).toUpperCase()}</span>
+                        </div>
+                    </div>
+                ))}
             </div>
         </div>
     );
@@ -287,7 +381,7 @@ function AdminDashboard({ incidents, onAssign }: { incidents: Incident[], onAssi
     );
 }
 
-function AgentDashboard({ myAssignments }: { myAssignments: Incident[] }) {
+function AgentDashboard({ myAssignments, onUpdateStatus }: { myAssignments: Incident[], onUpdateStatus: (inc: Incident) => void }) {
     const [roadRoutes, setRoadRoutes] = useState<Record<string, [number, number][] | null>>({});
 
     // Fetch road-following routes for each assignment using the backend proxy.
@@ -485,7 +579,14 @@ function AgentDashboard({ myAssignments }: { myAssignments: Incident[] }) {
                             </div>
                             <div className="flex flex-col items-end gap-2">
                                 <span className="text-xs text-gray-400">Assigned: {new Date(incident.createdAt).toLocaleDateString()}</span>
-                                <Button variant="contained" color="success" size="small">Update Status</Button>
+                                <Button
+                                    variant="contained"
+                                    color="success"
+                                    size="small"
+                                    onClick={() => onUpdateStatus(incident)}
+                                >
+                                    Update Status
+                                </Button>
                             </div>
                         </div>
                     ))}

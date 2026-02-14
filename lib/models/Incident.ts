@@ -28,7 +28,8 @@ const IncidentSchema = new Schema(
       }
     ],
 
-    status: { type: String, default: "pending", enum: ["pending", "verified", "assigned", "in_progress", "resolved"] },
+    fieldReport: { type: String, enum: ["controlled", "out_of_control"] },
+    status: { type: String, default: "pending", enum: ["pending", "verified", "assigned", "in_progress", "resolved", "completed"] },
   },
   { timestamps: true }
 );
