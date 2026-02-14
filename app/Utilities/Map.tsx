@@ -52,6 +52,7 @@ export default function Map({
   return (
     <div
       id="map"
+      className="relative z-0"
       style={{ width: "100%", height: "16rem", borderRadius: "1rem" }}
     />
   );
