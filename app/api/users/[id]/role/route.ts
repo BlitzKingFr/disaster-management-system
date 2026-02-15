@@ -5,9 +5,10 @@ import { auth } from "@/app/auth";
 
 export async function PATCH(
     req: Request,
-    { params }: { params: { id: string } }
+    context: { params: Promise<{ id: string }> }
 ) {
     try {
+        const params = await context.params;
         const session = await auth();
 
         // Only admins can change roles
