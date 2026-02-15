@@ -3,7 +3,7 @@ import { hash } from "bcryptjs";
 import { connectDB } from "@/lib/mongodb";
 import User from "@/lib/models/User";
 
-const ALLOWED_ROLES = ["user", "field_agent", "dispatcher"] as const;
+const ALLOWED_ROLES = ["user"] as const;
 
 export async function POST(req: Request) {
   try {

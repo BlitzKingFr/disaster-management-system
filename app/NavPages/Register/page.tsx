@@ -20,8 +20,7 @@ export default function RegisterPage() {
 
   const roles = [
     { value: 'user', label: 'Citizen' },
-    { value: 'field_agent', label: 'Field Agent' },
-    { value: 'dispatcher', label: 'Dispatcher' },
+    { value: 'user', label: 'Citizen' },
   ];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

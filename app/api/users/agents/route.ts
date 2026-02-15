@@ -21,7 +21,8 @@ export const GET = async () => {
                     "dispatcher",
                     "field dispatcher",
                     "Field Agent",
-                    "field agent"
+                    "field agent",
+                    "field_agent"
                 ]
             }
         }).select("_id name email role image");
