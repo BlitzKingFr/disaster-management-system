@@ -10,9 +10,13 @@ import {
     TextField,
     Chip,
     CircularProgress,
+    Tooltip,
+    LinearProgress
 } from "@mui/material";
 import { useSession } from "next-auth/react";
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
+import RadarIcon from '@mui/icons-material/Radar';
+import VerifiedIcon from '@mui/icons-material/Verified';
 import { BASE_COORDS, dijkstra, haversineDistance, type Graph } from "@/lib/utils";
 import RouteMap from "@/app/Utilities/RouteMap";
 
@@ -32,6 +36,10 @@ interface Incident {
     };
     address?: string;
     fieldReport?: string;
+    // New Fields
+    urgencyScore?: number;
+    verified?: boolean;
+    source?: string;
 }
 
 interface Agent {
@@ -54,6 +62,7 @@ export default function Dashboard() {
     const [resources, setResources] = useState<Resource[]>([]);
     const [archive, setArchive] = useState<Incident[]>([]);
     const [loading, setLoading] = useState(true);
+    const [scanning, setScanning] = useState(false);
 
     // Modal State
     const [openAssignModal, setOpenAssignModal] = useState(false);
@@ -81,8 +90,8 @@ export default function Dashboard() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            // Fetch Incidents
-            const incRes = await fetch("/api/reports"); // Reuse existing reports API if it returns all
+            // Fetch Incidents (Already sorted by MERGE SORT from API)
+            const incRes = await fetch("/api/reports");
             if (!incRes.ok) throw new Error("Failed to fetch reports");
             const incData = await incRes.json();
 
@@ -111,6 +120,24 @@ export default function Dashboard() {
             console.error(error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const runAutomatedScan = async () => {
+        setScanning(true);
+        try {
+            const res = await fetch("/api/cron/detect");
+            const data = await res.json();
+            if (data.detected > 0) {
+                alert(`System Detected ${data.detected} New Incidents from External APIs!`);
+                fetchData();
+            } else {
+                alert("Scan Complete. No new automated alerts found.");
+            }
+        } catch (e) {
+            alert("Scan failed.");
+        } finally {
+            setScanning(false);
         }
     };
 
@@ -182,9 +209,24 @@ export default function Dashboard() {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-6">
             <div className="max-w-7xl mx-auto">
-                <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white uppercase tracking-tight">
-                    {isAdmin ? "🏛️ Admin Command Center" : "📍 Field Operations"}
-                </h1>
+                <div className="flex justify-between items-center mb-8">
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white uppercase tracking-tight">
+                        {isAdmin ? "🏛️ Admin Command Center" : "📍 Field Operations"}
+                    </h1>
+                    {isAdmin && (
+                        <div className="flex gap-2">
+                            <Button
+                                variant="contained"
+                                color="secondary"
+                                startIcon={scanning ? <CircularProgress size={20} color="inherit" /> : <RadarIcon />}
+                                onClick={runAutomatedScan}
+                                disabled={scanning}
+                            >
+                                {scanning ? "Scanning..." : "Scan EXT APIs (USGS)"}
+                            </Button>
+                        </div>
+                    )}
+                </div>
 
                 {isAdmin ? (
                     <AdminDashboard
@@ -313,7 +355,9 @@ function ArchiveSection({ archive }: { archive: Incident[] }) {
                                     size="small"
                                     color={incident.fieldReport === "controlled" ? "success" : "error"}
                                     variant="outlined"
+                                    className="ml-2"
                                 />
+                                {incident.verified && <Tooltip title="Verified via Crowdsourcing/API"><VerifiedIcon color="primary" fontSize="small" /></Tooltip>}
                             </div>
                             <p className="text-sm text-gray-500 line-clamp-1">{incident.description}</p>
                             <p className="text-[10px] text-gray-400 mt-1">Completed: {new Date(incident.createdAt).toLocaleDateString()}</p>
@@ -331,13 +375,17 @@ function ArchiveSection({ archive }: { archive: Incident[] }) {
 function AdminDashboard({ incidents, onAssign }: { incidents: Incident[], onAssign: (inc: Incident) => void }) {
     return (
         <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-md border border-gray-200 dark:border-gray-800">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Incident Management</h2>
+            <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200 flex items-center justify-between">
+                <span>Incident Management</span>
+                <span className="text-xs text-gray-400 font-normal">Sorted by: Merge Sort (Urgency Score)</span>
+            </h2>
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                     <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
                         <tr>
                             <th className="px-6 py-3">Disaster</th>
                             <th className="px-6 py-3">Severity</th>
+                            <th className="px-6 py-3">Urgency Score</th>
                             <th className="px-6 py-3">Status</th>
                             <th className="px-6 py-3">Assignment</th>
                             <th className="px-6 py-3">Action</th>
@@ -345,15 +393,33 @@ function AdminDashboard({ incidents, onAssign }: { incidents: Incident[], onAssi
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
                         {incidents.length === 0 ? (
-                            <tr><td colSpan={5} className="p-8 text-center text-gray-500">No incidents reported yet.</td></tr>
+                            <tr><td colSpan={6} className="p-8 text-center text-gray-500">No incidents reported yet.</td></tr>
                         ) : incidents.map((incident) => (
-                            <tr key={incident._id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                                <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{incident.disasterType}</td>
+                            <tr key={incident._id} className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 ${incident.verified ? 'bg-blue-50/50' : ''}`}>
+                                <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                                    <div className="flex items-center gap-1">
+                                        {incident.disasterType}
+                                        {incident.source === 'api' && <span className="text-[10px] bg-purple-100 text-purple-700 px-1 rounded">API</span>}
+                                        {incident.verified && <VerifiedIcon fontSize="small" className="text-blue-500" />}
+                                    </div>
+                                </td>
                                 <td className="px-6 py-4 font-bold text-red-600">{incident.severity}/5</td>
                                 <td className="px-6 py-4">
+                                    <div className="flex items-center gap-2">
+                                        <LinearProgress
+                                            variant="determinate"
+                                            value={Math.min(100, (incident.urgencyScore || 0))}
+                                            className="w-16 h-2 rounded"
+                                            color={((incident.urgencyScore || 0) > 40) ? "error" : "primary"}
+                                        />
+                                        <span className="text-xs font-mono">{Math.round(incident.urgencyScore || 0)}</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4">
                                     <span className={`px-2 py-1 rounded-full text-xs font-semibold ${incident.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                        incident.status === 'assigned' ? 'bg-blue-100 text-blue-800' :
-                                            'bg-gray-100 text-gray-800'
+                                            incident.status === 'verified' ? 'bg-purple-100 text-purple-800' :
+                                                incident.status === 'assigned' ? 'bg-blue-100 text-blue-800' :
+                                                    'bg-gray-100 text-gray-800'
                                         }`}>
                                         {incident.status}
                                     </span>
@@ -486,7 +552,7 @@ function AgentDashboard({ myAssignments, onUpdateStatus }: { myAssignments: Inci
 
     return (
         <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-md border border-gray-200 dark:border-gray-800">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Active Missions</h2>
+            <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Active Missions (Route Optimization: Dijkstra)</h2>
             {/* Added debug info for agent to verify alignment */}
             <p className="text-[10px] text-gray-400 mb-4 font-mono">Operations ID: {myAssignments[0]?.assignedTo || "No current missions"}</p>
             {myAssignments.length === 0 ? (

@@ -30,6 +30,15 @@ const IncidentSchema = new Schema(
 
     fieldReport: { type: String, enum: ["controlled", "out_of_control"] },
     status: { type: String, default: "pending", enum: ["pending", "verified", "assigned", "in_progress", "resolved", "completed"] },
+
+    // ------------------------------------------
+    // New Fields for Automated Verification & Scoring
+    // ------------------------------------------
+    urgencyScore: { type: Number, default: 0 },
+    reportCount: { type: Number, default: 1 },
+    verified: { type: Boolean, default: false },
+    source: { type: String, enum: ['user', 'api'], default: 'user' },
+    externalId: { type: String }, // For USGS/OpenWeather linking
   },
   { timestamps: true }
 );
