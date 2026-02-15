@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const MONGO_URI = "mongodb://localhost:27017/DMS";
+const MONGO_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/DMS";
 
 let cached = (global as any).mongoose;
 
@@ -10,7 +10,22 @@ if (!cached) {
 
 export async function connectDB() {
   if (cached.conn) return cached.conn;
-  cached.promise = mongoose.connect(MONGO_URI);
-  cached.conn = await cached.promise;
+
+  if (!cached.promise) {
+    const opts = {
+      bufferCommands: false,
+    };
+    cached.promise = mongoose.connect(MONGO_URI, opts).then((mongoose) => {
+      return mongoose;
+    });
+  }
+
+  try {
+    cached.conn = await cached.promise;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
+  }
+
   return cached.conn;
 }
