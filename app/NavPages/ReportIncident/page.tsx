@@ -3,6 +3,7 @@ import Map from "@/app/Utilities/Map";
 import { BASE_COORDS } from "@/lib/utils";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import WarningIcon from '@mui/icons-material/Warning';
 import WaterDamageIcon from '@mui/icons-material/WaterDamage';
@@ -14,6 +15,7 @@ import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 
 const ReportPage = () => {
     const router = useRouter();
+    const { data: session } = useSession();
 
     // Form state
     const [disasterType, setDisasterType] = useState("earthquake");
@@ -23,6 +25,10 @@ const ReportPage = () => {
     const [address, setAddress] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+
+    // Anonymous reporter info
+    const [reporterName, setReporterName] = useState("");
+    const [reporterContact, setReporterContact] = useState("");
 
     const handleCancel = () => {
         router.push("/");
@@ -37,6 +43,12 @@ const ReportPage = () => {
             return;
         }
 
+        // Validate anonymous reporter info if not logged in
+        if (!session && (!reporterName || !reporterContact)) {
+            setError("Please provide your name and contact information for anonymous reporting.");
+            return;
+        }
+
         setLoading(true);
         try {
             const res = await fetch("/api/reports", {
@@ -48,6 +60,8 @@ const ReportPage = () => {
                     description,
                     location: { lat: location.lat, lng: location.lng },
                     address: address.trim(),
+                    reporterName: !session ? reporterName : undefined,
+                    reporterContact: !session ? reporterContact : undefined,
                 }),
             });
 
@@ -56,7 +70,7 @@ const ReportPage = () => {
                 throw new Error(data.error || "Failed to submit report");
             }
 
-            alert("Report submitted successfully!");
+            alert(data.message || "Report submitted successfully!");
             router.push("/");
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : "Failed to submit report");
@@ -191,6 +205,50 @@ const ReportPage = () => {
                                                     onChange={(e) => setDescription(e.target.value)}
                                                 ></textarea>
                                             </div>
+
+                                            {/* Anonymous Reporter Fields */}
+                                            {!session && (
+                                                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 space-y-4">
+                                                    <div className="flex items-start gap-2">
+                                                        <WarningIcon className="text-amber-600 dark:text-amber-400 mt-0.5" fontSize="small" />
+                                                        <div>
+                                                            <p className="text-sm font-bold text-amber-900 dark:text-amber-200">Anonymous Reporting</p>
+                                                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                                                                You're not logged in. Please provide your contact information so authorities can reach you if needed. Anonymous reports require admin verification.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                                                                Your Name *
+                                                            </label>
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Full name"
+                                                                value={reporterName}
+                                                                onChange={(e) => setReporterName(e.target.value)}
+                                                                className="w-full rounded-lg border-slate-200 dark:border-[#493222] bg-white dark:bg-white/5 text-slate-900 dark:text-white p-3"
+                                                                required
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                                                                Contact (Phone/Email) *
+                                                            </label>
+                                                            <input
+                                                                type="text"
+                                                                placeholder="Phone or email"
+                                                                value={reporterContact}
+                                                                onChange={(e) => setReporterContact(e.target.value)}
+                                                                className="w-full rounded-lg border-slate-200 dark:border-[#493222] bg-white dark:bg-white/5 text-slate-900 dark:text-white p-3"
+                                                                required
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             <div>
                                                 <div className="flex justify-between items-center mb-4">
                                                     <label className="text-sm font-bold text-slate-700 dark:text-slate-300">

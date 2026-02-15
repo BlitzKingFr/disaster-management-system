@@ -68,9 +68,12 @@ const Main = ({ user }: { user?: User | null }) => {
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
-          const sorted = mergeSort(data, (a, b) => {
-            if (a.severity !== b.severity) return a.severity - b.severity;
-            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          // Filter out pending incidents (anonymous reports waiting for verification)
+          const validIncidents = data.filter((inc: any) => inc.status !== 'pending');
+
+          const sorted = mergeSort(validIncidents, (a, b) => {
+            if (a.severity !== b.severity) return b.severity - a.severity; // Higher severity first
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(); // Newer first
           });
           setIncidents(sorted);
         }

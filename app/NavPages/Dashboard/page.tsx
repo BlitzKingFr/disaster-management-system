@@ -38,6 +38,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import SettingsIcon from '@mui/icons-material/Settings';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import HomeIcon from '@mui/icons-material/Home';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import WaterDamageIcon from '@mui/icons-material/WaterDamage';
 import { BASE_COORDS, dijkstra, haversineDistance, type Graph } from "@/lib/utils";
@@ -88,6 +89,7 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [scanning, setScanning] = useState(false);
     const [activeView, setActiveView] = useState('overview');
+    const [userJob, setUserJob] = useState("Command Center");
 
     // Modal State
     const [openAssignModal, setOpenAssignModal] = useState(false);
@@ -208,7 +210,7 @@ export default function Dashboard() {
         }
     };
 
-    if (status === "loading" || loading) {
+    if (status === "loading") {
         return (
             <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-950">
                 <CircularProgress size={60} />
@@ -244,6 +246,7 @@ export default function Dashboard() {
         { id: 'agents', label: 'Field Agents', icon: <PeopleIcon />, badge: activeAgents },
         { id: 'resources', label: 'Resources', icon: <InventoryIcon />, badge: lowStockResources > 0 ? lowStockResources : undefined },
         { id: 'analytics', label: 'Analytics', icon: <BarChartIcon /> },
+        { id: 'home', label: 'Exit Dashboard', icon: <HomeIcon /> },
     ];
 
     return (
@@ -285,6 +288,22 @@ export default function Dashboard() {
                                 <p className="text-xs text-gray-400">Administrator</p>
                             </div>
                         </div>
+
+                        <div className="mt-4">
+                            <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block tracking-wider">Current Duty Role</label>
+                            <select
+                                className="w-full bg-black/20 text-xs text-gray-300 rounded-lg border border-gray-700 p-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 cursor-pointer transition-colors hover:bg-black/30 appearance-none"
+                                value={userJob}
+                                onChange={(e) => setUserJob(e.target.value)}
+                                style={{ backgroundImage: 'none' }} // Remove default arrow if needed, or keep it
+                            >
+                                <option value="Command Center" className="bg-slate-800">Command Center</option>
+                                <option value="Dispatch" className="bg-slate-800">Dispatch Officer</option>
+                                <option value="Logistics" className="bg-slate-800">Logistics Manager</option>
+                                <option value="Field Ops" className="bg-slate-800">Field Ops Lead</option>
+                                <option value="Analyst" className="bg-slate-800">Intel Analyst</option>
+                            </select>
+                        </div>
                     </div>
 
                     {/* Navigation */}
@@ -293,7 +312,13 @@ export default function Dashboard() {
                             <ListItemButton
                                 key={item.id}
                                 selected={activeView === item.id}
-                                onClick={() => setActiveView(item.id)}
+                                onClick={() => {
+                                    if (item.id === 'home') {
+                                        window.location.href = '/';
+                                    } else {
+                                        setActiveView(item.id);
+                                    }
+                                }}
                                 sx={{
                                     borderRadius: 2,
                                     mb: 1,
@@ -322,24 +347,32 @@ export default function Dashboard() {
 
                     {/* Quick Actions */}
                     <div className="p-3 border-t border-gray-700">
-                        <Button
-                            fullWidth
-                            variant="contained"
-                            startIcon={scanning ? <CircularProgress size={20} color="inherit" /> : <RadarIcon />}
-                            onClick={runAutomatedScan}
-                            disabled={scanning}
-                            sx={{
-                                background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                                '&:hover': {
-                                    background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
-                                },
-                                borderRadius: 2,
-                                py: 1.5,
-                                fontWeight: 700
-                            }}
-                        >
-                            {scanning ? "Scanning..." : "Scan APIs"}
-                        </Button>
+                        <div className="mb-2 px-1">
+                            <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">System Tools</p>
+                        </div>
+                        <Tooltip title="Run automated detection algorithms on external APIs (USGS, OpenWeather) to find and verify unreported disasters." arrow placement="right">
+                            <Button
+                                fullWidth
+                                variant="contained"
+                                startIcon={scanning ? <CircularProgress size={20} color="inherit" /> : <RadarIcon />}
+                                onClick={runAutomatedScan}
+                                disabled={scanning}
+                                sx={{
+                                    background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                                    '&:hover': {
+                                        background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+                                    },
+                                    borderRadius: 2,
+                                    py: 1.5,
+                                    fontWeight: 700
+                                }}
+                            >
+                                {scanning ? "Scanning..." : "Scan External APIs"}
+                            </Button>
+                        </Tooltip>
+                        <p className="text-[10px] text-gray-500 mt-2 text-center">
+                            Syncs with USGS & OpenWeather
+                        </p>
                     </div>
                 </Drawer>
             )}
@@ -584,83 +617,156 @@ function AdminOverview({ incidents, agents, resources, stats }: any) {
     );
 }
 
-// Incidents View Component
+// Incidents View Component - Redesigned
 function AdminIncidents({ incidents, onAssign }: { incidents: Incident[], onAssign: (inc: Incident) => void }) {
     return (
-        <div>
-            <div className="mb-8">
-                <h1 className="text-4xl font-black text-gray-900 dark:text-white mb-2">Incident Management</h1>
-                <p className="text-gray-600 dark:text-gray-400">Sorted by Merge Sort (Urgency Score)</p>
+        <div className="p-6">
+            <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Incident Management</h1>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">Real-time emergency feed • Sorted by Urgency Score (Merge Sort)</p>
+                </div>
+                <div className="flex gap-2">
+                    <Chip
+                        label={`Total: ${incidents.length}`}
+                        color="primary"
+                        variant="outlined"
+                        sx={{ fontWeight: 'bold' }}
+                    />
+                    <Chip
+                        label={`Pending: ${incidents.filter(i => i.status === 'pending').length}`}
+                        color="warning"
+                        variant="outlined"
+                        sx={{ fontWeight: 'bold' }}
+                    />
+                    <Chip
+                        label={`Verified: ${incidents.filter(i => i.verified).length}`}
+                        color="success"
+                        variant="outlined"
+                        sx={{ fontWeight: 'bold' }}
+                    />
+                </div>
             </div>
 
-            <Card>
-                <CardContent>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+            <div className="bg-white dark:bg-[#1e1e1e] rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 dark:bg-[#252525] text-xs uppercase font-bold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                            <tr>
+                                <th className="px-4 py-3 w-12">#</th>
+                                <th className="px-4 py-3">Type</th>
+                                <th className="px-4 py-3">Location / Desc</th>
+                                <th className="px-4 py-3 text-center">Sev</th>
+                                <th className="px-4 py-3 w-24">Score</th>
+                                <th className="px-4 py-3">Source</th>
+                                <th className="px-4 py-3">Status</th>
+                                <th className="px-4 py-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {incidents.length === 0 ? (
                                 <tr>
-                                    <th className="px-6 py-3">Disaster</th>
-                                    <th className="px-6 py-3">Severity</th>
-                                    <th className="px-6 py-3">Urgency Score</th>
-                                    <th className="px-6 py-3">Status</th>
-                                    <th className="px-6 py-3">Assignment</th>
-                                    <th className="px-6 py-3">Action</th>
+                                    <td colSpan={8} className="p-12 text-center text-slate-500">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <ReportProblemIcon fontSize="large" className="text-slate-300" />
+                                            <p>No incidents reported yet.</p>
+                                        </div>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                                {incidents.length === 0 ? (
-                                    <tr><td colSpan={6} className="p-8 text-center text-gray-500">No incidents reported yet.</td></tr>
-                                ) : incidents.map((incident) => (
-                                    <tr key={incident._id} className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 ${incident.verified ? 'bg-blue-50/50' : ''}`}>
-                                        <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
-                                            <div className="flex items-center gap-1">
-                                                {incident.disasterType}
-                                                {incident.source === 'api' && <span className="text-[10px] bg-purple-100 text-purple-700 px-1 rounded">API</span>}
-                                                {incident.verified && <VerifiedIcon fontSize="small" className="text-blue-500" />}
+                            ) : incidents.map((incident, idx) => (
+                                <tr key={incident._id} className={`group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors ${incident.status === 'pending' ? 'bg-amber-50/30 dark:bg-amber-900/10' : ''}`}>
+                                    <td className="px-4 py-3 text-slate-400 font-mono text-xs">{idx + 1}</td>
+                                    <td className="px-4 py-3">
+                                        <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-slate-200 capitalize">
+                                            {incident.disasterType}
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3 max-w-xs">
+                                        <div className="truncate font-medium text-slate-900 dark:text-white" title={incident.address || "No address"}>
+                                            {incident.address || "Unknown Location"}
+                                        </div>
+                                        <div className="truncate text-xs text-slate-500" title={incident.description}>
+                                            {incident.description}
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${incident.severity >= 4 ? 'bg-red-100 text-red-700' :
+                                            incident.severity === 3 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
+                                            }`}>
+                                            {incident.severity}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full rounded-full ${incident.urgencyScore && incident.urgencyScore > 50 ? 'bg-red-500' : 'bg-blue-500'}`}
+                                                    style={{ width: `${Math.min(100, incident.urgencyScore || 0)}%` }}
+                                                ></div>
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-4 font-bold text-red-600">{incident.severity}/5</td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <LinearProgress
-                                                    variant="determinate"
-                                                    value={Math.min(100, (incident.urgencyScore || 0))}
-                                                    className="w-16 h-2 rounded"
-                                                    color={((incident.urgencyScore || 0) > 40) ? "error" : "primary"}
-                                                />
-                                                <span className="text-xs font-mono">{Math.round(incident.urgencyScore || 0)}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${incident.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                incident.status === 'verified' ? 'bg-purple-100 text-purple-800' :
-                                                    incident.status === 'assigned' ? 'bg-blue-100 text-blue-800' :
-                                                        'bg-gray-100 text-gray-800'
-                                                }`}>
-                                                {incident.status}
+                                            <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400">
+                                                {Math.round(incident.urgencyScore || 0)}
                                             </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {incident.assignedTo ? "✅ Assigned" : "❌ Unassigned"}
-                                        </td>
-                                        <td className="px-6 py-4">
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <div className="flex flex-col">
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full w-fit ${incident.source === 'anonymous' ? 'bg-slate-100 text-slate-600 border border-slate-200' :
+                                                incident.source === 'api' ? 'bg-purple-100 text-purple-600 border border-purple-200' :
+                                                    'bg-blue-50 text-blue-600 border border-blue-100'
+                                                }`}>
+                                                {incident.source || 'User'}
+                                            </span>
+                                            {incident.source === 'anonymous' && (
+                                                <span className="text-[10px] text-slate-400 mt-0.5 ml-1">Needs Verify</span>
+                                            )}
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <Chip
+                                            label={incident.status}
+                                            size="small"
+                                            color={
+                                                incident.status === 'verified' ? 'success' :
+                                                    incident.status === 'pending' ? 'warning' :
+                                                        incident.status === 'assigned' ? 'info' : 'default'
+                                            }
+                                            variant={incident.status === 'pending' ? 'filled' : 'outlined'}
+                                            className="font-bold text-xs uppercase"
+                                            sx={{ height: 24 }}
+                                        />
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                        {incident.status !== 'assigned' && incident.status !== 'completed' && (
                                             <Button
-                                                variant="outlined"
+                                                variant="contained"
                                                 size="small"
-                                                startIcon={<AssignmentIndIcon />}
                                                 onClick={() => onAssign(incident)}
-                                                disabled={!!incident.assignedTo}
+                                                startIcon={<AssignmentIndIcon />}
+                                                sx={{
+                                                    textTransform: 'none',
+                                                    fontSize: '0.75rem',
+                                                    backgroundColor: incident.status === 'pending' ? '#f59e0b' : undefined,
+                                                    '&:hover': {
+                                                        backgroundColor: incident.status === 'pending' ? '#d97706' : undefined
+                                                    }
+                                                }}
                                             >
-                                                Assign
+                                                {incident.status === 'pending' ? 'Review' : 'Assign'}
                                             </Button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </CardContent>
-            </Card>
+                                        )}
+                                        {incident.status === 'assigned' && (
+                                            <span className="text-xs text-emerald-600 font-bold flex items-center justify-end gap-1">
+                                                <VerifiedIcon fontSize="inherit" /> Assigned
+                                            </span>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     );
 }

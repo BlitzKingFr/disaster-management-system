@@ -37,8 +37,14 @@ const IncidentSchema = new Schema(
     urgencyScore: { type: Number, default: 0 },
     reportCount: { type: Number, default: 1 },
     verified: { type: Boolean, default: false },
-    source: { type: String, enum: ['user', 'api'], default: 'user' },
+    source: { type: String, enum: ['user', 'api', 'anonymous'], default: 'user' },
     externalId: { type: String }, // For USGS/OpenWeather linking
+
+    // Metadata for anonymous reports
+    metadata: {
+      type: Schema.Types.Mixed,
+      default: {}
+    },
   },
   { timestamps: true }
 );

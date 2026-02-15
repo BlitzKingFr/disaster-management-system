@@ -53,7 +53,7 @@ export async function POST(req: Request) {
   try {
     const session = await auth();
     const body = await req.json();
-    const { disasterType, severity, description, location, address, isAnonymous, reporterName, reporterContact } = body;
+    const { disasterType, severity, description, location, address, reporterName, reporterContact } = body;
 
     // Basic Validation
     if (!disasterType || !description || !location) {
@@ -91,6 +91,7 @@ export async function POST(req: Request) {
 
     const existingIncident = await Incident.findOne({
       status: { $in: ["pending", "verified", "assigned"] },
+      disasterType: disasterType,
       "location.lat": {
         $gte: location.lat - DUPLICATE_THRESHOLD_DEG,
         $lte: location.lat + DUPLICATE_THRESHOLD_DEG,
@@ -154,7 +155,7 @@ export async function POST(req: Request) {
       severity,
       description,
       location,
-      address,
+      address: address || "",
       reportedBy,
       status: initialStatus,
       verified: isVerified,
@@ -180,64 +181,4 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
-}
-
-disasterType: disasterType, // Must match type (e.g. don't merge Fire with Flood)
-  "location.lat": { $gt: location.lat - DUPLICATE_THRESHOLD_DEG, $lt: location.lat + DUPLICATE_THRESHOLD_DEG },
-"location.lng": { $gt: location.lng - DUPLICATE_THRESHOLD_DEG, $lt: location.lng + DUPLICATE_THRESHOLD_DEG }
-    });
-
-if (existingIncident) {
-  // CLUSTERING: Update existing instead of creating new
-  existingIncident.reportCount = (existingIncident.reportCount || 1) + 1;
-
-  // If more than 2 people report, mark as VERIFIED automatically
-  if (existingIncident.reportCount >= 2 && existingIncident.status === "pending") {
-    existingIncident.status = "verified";
-    existingIncident.verified = true;
-  }
-
-  // Recalculate Urgency
-  existingIncident.urgencyScore = calculateUrgencyScore(
-    existingIncident.severity, // Keep original severity or take max? Let's keep original for now.
-    existingIncident.reportCount,
-    existingIncident.createdAt
-  );
-
-  await existingIncident.save();
-
-  return NextResponse.json({
-    success: true,
-    message: "Incident report merged with existing nearby alert.",
-    id: existingIncident._id
-  });
-}
-
-// ---------------------------------------------------------
-// NEW INCIDENT CREATION
-// ---------------------------------------------------------
-const initialUrgency = calculateUrgencyScore(severity, 1, new Date());
-
-const incident = await Incident.create({
-  disasterType,
-  severity,
-  description,
-  location,
-  address: address || "",
-  reportedBy: session.user.id,
-  status: "pending",
-  reportCount: 1,
-  urgencyScore: initialUrgency,
-  verified: false // Requires admin or more reports
-});
-
-return NextResponse.json({ success: true, id: incident._id.toString() });
-
-  } catch (err: any) {
-  console.error("Report incident error:", err);
-  return NextResponse.json(
-    { error: "Failed to submit report. Please try again." },
-    { status: 500 }
-  );
-}
 }
