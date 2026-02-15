@@ -41,6 +41,7 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import HomeIcon from '@mui/icons-material/Home';
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
 import WaterDamageIcon from '@mui/icons-material/WaterDamage';
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import { BASE_COORDS, dijkstra, haversineDistance, type Graph } from "@/lib/utils";
 import RouteMap from "@/app/Utilities/RouteMap";
 
@@ -89,7 +90,6 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [scanning, setScanning] = useState(false);
     const [activeView, setActiveView] = useState('overview');
-    const [userJob, setUserJob] = useState("Command Center");
 
     // Modal State
     const [openAssignModal, setOpenAssignModal] = useState(false);
@@ -245,6 +245,7 @@ export default function Dashboard() {
         { id: 'incidents', label: 'Incidents', icon: <ReportProblemIcon />, badge: totalIncidents },
         { id: 'agents', label: 'Field Agents', icon: <PeopleIcon />, badge: activeAgents },
         { id: 'resources', label: 'Resources', icon: <InventoryIcon />, badge: lowStockResources > 0 ? lowStockResources : undefined },
+        { id: 'users', label: 'User Management', icon: <ManageAccountsIcon /> },
         { id: 'analytics', label: 'Analytics', icon: <BarChartIcon /> },
         { id: 'home', label: 'Exit Dashboard', icon: <HomeIcon /> },
     ];
@@ -289,21 +290,6 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        <div className="mt-4">
-                            <label className="text-[10px] uppercase font-bold text-gray-500 mb-1 block tracking-wider">Current Duty Role</label>
-                            <select
-                                className="w-full bg-black/20 text-xs text-gray-300 rounded-lg border border-gray-700 p-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 cursor-pointer transition-colors hover:bg-black/30 appearance-none"
-                                value={userJob}
-                                onChange={(e) => setUserJob(e.target.value)}
-                                style={{ backgroundImage: 'none' }} // Remove default arrow if needed, or keep it
-                            >
-                                <option value="Command Center" className="bg-slate-800">Command Center</option>
-                                <option value="Dispatch" className="bg-slate-800">Dispatch Officer</option>
-                                <option value="Logistics" className="bg-slate-800">Logistics Manager</option>
-                                <option value="Field Ops" className="bg-slate-800">Field Ops Lead</option>
-                                <option value="Analyst" className="bg-slate-800">Intel Analyst</option>
-                            </select>
-                        </div>
                     </div>
 
                     {/* Navigation */}
@@ -411,6 +397,9 @@ export default function Dashboard() {
                             )}
                             {activeView === 'resources' && (
                                 <ResourcesView resources={resources} />
+                            )}
+                            {activeView === 'users' && (
+                                <UsersView agents={agents} />
                             )}
                             {activeView === 'analytics' && (
                                 <AnalyticsView incidents={incidents} archive={archive} />
@@ -910,9 +899,34 @@ function AnalyticsView({ incidents, archive }: { incidents: Incident[], archive:
     );
 }
 
-// Agent Dashboard (unchanged from before, but simplified)
+// Agent Dashboard - Redesigned with Split View & Large Map
 function AgentDashboard({ myAssignments, onUpdateStatus }: { myAssignments: Incident[], onUpdateStatus: (inc: Incident) => void }) {
     const [roadRoutes, setRoadRoutes] = useState<Record<string, [number, number][] | null>>({});
+    const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [myLocation, setMyLocation] = useState(BASE_COORDS);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    setMyLocation({
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude
+                    });
+                },
+                (err) => console.warn("Geolocation access denied or failed", err)
+            );
+        }
+    }, []);
+
+    // Set initial selection
+    useEffect(() => {
+        if (myAssignments.length > 0 && !selectedId) {
+            setSelectedId(myAssignments[0]._id);
+        }
+    }, [myAssignments, selectedId]);
+
+    const selectedMission = myAssignments.find(m => m._id === selectedId) || myAssignments[0];
 
     useEffect(() => {
         const fetchRoutes = async () => {
@@ -922,6 +936,9 @@ function AgentDashboard({ myAssignments, onUpdateStatus }: { myAssignments: Inci
             const newRoutes: Record<string, [number, number][] | null> = { ...roadRoutes };
             let hasNew = false;
 
+            // Limit to checking selected mission for performance, or check all? 
+            // Better to check all so list items can potentially show generic info?
+            // Actually, let's just fetch for all assigned so switching is fast.
             const entries = await Promise.all(
                 myAssignments.map(async (incident) => {
                     if (!incident.location) return [incident._id, null] as const;
@@ -936,7 +953,7 @@ function AgentDashboard({ myAssignments, onUpdateStatus }: { myAssignments: Inci
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
-                                from: { lat: BASE_COORDS.lat, lng: BASE_COORDS.lng },
+                                from: { lat: myLocation.lat, lng: myLocation.lng },
                                 to: {
                                     lat: incident.location.lat,
                                     lng: incident.location.lng,
@@ -945,7 +962,6 @@ function AgentDashboard({ myAssignments, onUpdateStatus }: { myAssignments: Inci
                         });
 
                         if (!res.ok) {
-                            console.warn("Road route failed for incident", incident._id);
                             return [incident._id, null] as const;
                         }
                         const data = await res.json();
@@ -956,7 +972,6 @@ function AgentDashboard({ myAssignments, onUpdateStatus }: { myAssignments: Inci
                         }
                         return [incident._id, path] as const;
                     } catch (e) {
-                        console.warn("Road route error for incident", incident._id, e);
                         return [incident._id, null] as const;
                     }
                 })
@@ -975,148 +990,221 @@ function AgentDashboard({ myAssignments, onUpdateStatus }: { myAssignments: Inci
 
         if (myAssignments.length > 0) {
             fetchRoutes();
-        } else {
-            setRoadRoutes({});
         }
-    }, [myAssignments]);
-
-    const buildSimpleRouteGraph = (incident: Incident): { distanceKm: number; path: string[] } | null => {
-        if (!incident.location) return null;
-
-        const incidentNodeId = `INCIDENT_${incident._id}`;
-
-        const graph: Graph = {
-            BASE: [
-                {
-                    to: incidentNodeId,
-                    weight: haversineDistance(
-                        BASE_COORDS.lat,
-                        BASE_COORDS.lng,
-                        incident.location.lat,
-                        incident.location.lng
-                    ),
-                },
-            ],
-        };
-
-        graph[incidentNodeId] = [
-            {
-                to: "BASE",
-                weight: graph.BASE[0].weight,
-            },
-        ];
-
-        const result = dijkstra(graph, "BASE", incidentNodeId);
-        if (!result) return null;
-        return { distanceKm: result.distance, path: result.path };
-    };
+    }, [myAssignments, myLocation]);
 
     return (
-        <div className="bg-white dark:bg-gray-900 rounded-xl p-6 shadow-md border border-gray-200 dark:border-gray-800">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Active Missions (Route Optimization: Dijkstra)</h2>
-            {myAssignments.length === 0 ? (
-                <div className="text-center py-12">
-                    <p className="text-gray-500 text-lg">No missions assigned to you yet.</p>
-                    <p className="text-sm text-gray-400">Wait for high command to dispatch an incident.</p>
+        <div className="flex flex-col lg:flex-row h-[calc(100vh-100px)] gap-4 pb-4">
+            {/* Left Panel: Mission Log */}
+            <div className="w-full lg:w-1/3 flex flex-col gap-3 bg-white dark:bg-gray-900 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 p-4">
+                <div className="flex items-center justify-between mb-2">
+                    <div>
+                        <h2 className="text-xl font-black text-gray-800 dark:text-white">Field Operations</h2>
+                        <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Mission Log</p>
+                    </div>
+                    <Button
+                        variant="outlined"
+                        size="small"
+                        color="inherit"
+                        onClick={() => window.location.href = '/'}
+                        startIcon={<HomeIcon />}
+                        sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 'bold', fontSize: '0.75rem' }}
+                    >
+                        Exit
+                    </Button>
                 </div>
-            ) : (
-                <div className="grid gap-6">
-                    {myAssignments.map((incident) => (
-                        <div
-                            key={incident._id}
-                            className="border dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-5 rounded-lg flex flex-col md:flex-row justify-between items-start gap-4"
-                        >
-                            <div className="flex-1 space-y-3">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <h3 className="text-lg font-bold text-red-600">{incident.disasterType}</h3>
-                                    <span className="bg-red-100 text-red-800 text-xs px-2 py-0.5 rounded">Priority: {incident.severity}</span>
-                                </div>
-                                <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 leading-relaxed">{incident.description}</p>
-                                <div className="text-xs text-gray-500 space-y-1">
-                                    {incident.address && (
-                                        <p><span className="font-semibold">Location:</span> {incident.address}</p>
-                                    )}
-                                    {incident.location && (
-                                        <p>
-                                            <span className="font-semibold">Coordinates:</span>{" "}
-                                            {incident.location.lat.toFixed(5)}, {incident.location.lng.toFixed(5)}
-                                        </p>
-                                    )}
-                                </div>
 
-                                <div className="flex flex-wrap gap-2">
-                                    {incident.allocatedResources?.length > 0 ? (
-                                        incident.allocatedResources.map((res: any, idx: number) => (
-                                            <Chip
-                                                key={idx}
-                                                label={`${res.resourceId?.name || 'Resource'}: ${res.quantity}`}
-                                                color="primary"
-                                                variant="outlined"
-                                                size="small"
-                                            />
-                                        ))
-                                    ) : (
-                                        <span className="text-xs text-gray-400">No resources allocated</span>
-                                    )}
+                <div className="flex-1 overflow-y-auto pr-1 space-y-3">
+                    {myAssignments.length === 0 ? (
+                        <div className="text-center py-12 text-gray-500">
+                            <p className="text-lg font-bold">No Active Missions</p>
+                            <p className="text-sm">Standby for transmission.</p>
+                        </div>
+                    ) : (
+                        myAssignments.map((incident) => (
+                            <div
+                                key={incident._id}
+                                onClick={() => setSelectedId(incident._id)}
+                                className={`cursor-pointer p-4 rounded-lg border transition-all relative ${selectedId === incident._id
+                                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-500 shadow-md'
+                                    : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                                    }`}
+                            >
+                                <div className="flex justify-between items-start mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="font-bold text-gray-900 dark:text-white capitalize">{incident.disasterType}</h3>
+                                        {incident.severity >= 4 && <span className="animate-pulse w-2 h-2 rounded-full bg-red-500"></span>}
+                                    </div>
+                                    <Chip
+                                        label={incident.severity}
+                                        size="small"
+                                        className={`font-bold ${incident.severity >= 4 ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}
+                                        sx={{ height: 20, fontSize: '0.65rem' }}
+                                    />
                                 </div>
-
-                                {(() => {
-                                    const route = buildSimpleRouteGraph(incident);
-                                    if (!route) return null;
-
-                                    return (
-                                        <div className="mt-2 text-xs text-gray-500 border-t border-dashed border-gray-300 pt-2">
-                                            <p className="font-semibold mb-1">Route from Base (Dijkstra):</p>
-                                            <p>
-                                                <span className="font-medium">Base</span> ({BASE_COORDS.lat.toFixed(5)},{" "}
-                                                {BASE_COORDS.lng.toFixed(5)}) →{" "}
-                                                <span className="font-medium">Incident Site</span>{" "}
-                                                {incident.location
-                                                    ? `(${incident.location.lat.toFixed(5)}, ${incident.location.lng.toFixed(5)})`
-                                                    : ""}
-                                            </p>
-                                            <p className="mt-1">
-                                                <span className="font-medium">Shortest distance:</span>{" "}
-                                                {route.distanceKm.toFixed(2)} km
-                                            </p>
-                                            {incident.location && (
-                                                <div className="mt-3">
-                                                    <RouteMap
-                                                        from={{
-                                                            lat: BASE_COORDS.lat,
-                                                            lng: BASE_COORDS.lng,
-                                                            label: "Base",
-                                                        }}
-                                                        to={{
-                                                            lat: incident.location.lat,
-                                                            lng: incident.location.lng,
-                                                            label: "Incident",
-                                                        }}
-                                                        roadPath={roadRoutes[incident._id] || undefined}
-                                                        zoom={13}
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })()}
+                                <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 mb-2 text-xs">{incident.description}</p>
+                                <div className="flex items-center justify-between mt-2">
+                                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${incident.status === 'assigned' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                                        }`}>
+                                        {incident.status}
+                                    </span>
+                                    <span className="text-[10px] text-gray-400">
+                                        {new Date(incident.createdAt).toLocaleTimeString()}
+                                    </span>
+                                </div>
                             </div>
-                            <div className="flex flex-col items-end gap-2">
-                                <span className="text-xs text-gray-400">Assigned: {new Date(incident.createdAt).toLocaleDateString()}</span>
-                                <Button
-                                    variant="contained"
-                                    color="success"
-                                    size="small"
-                                    onClick={() => onUpdateStatus(incident)}
-                                >
-                                    Update Status
-                                </Button>
+                        ))
+                    )}
+                </div>
+            </div>
+
+            {/* Right Panel: Tactical Map */}
+            <div className="flex-1 bg-white dark:bg-gray-900 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col relative h-full">
+                {selectedMission ? (
+                    <>
+                        <div className="absolute top-4 left-4 z-[400] bg-white/95 dark:bg-[#0f172a]/95 backdrop-blur p-4 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 max-w-sm">
+                            <h3 className="font-bold text-lg text-red-600 flex items-center gap-2 mb-1">
+                                <span className="material-symbols-outlined text-lg">emergency</span>
+                                {selectedMission.disasterType.toUpperCase()}
+                            </h3>
+                            <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-2 leading-snug">
+                                {selectedMission.address || 'Unknown coordinates'}
+                            </p>
+
+                            <div className="flex gap-2 text-xs">
+                                <span className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                                    <span className="font-bold">LAT:</span> {selectedMission.location?.lat.toFixed(4)}
+                                </span>
+                                <span className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                                    <span className="font-bold">LNG:</span> {selectedMission.location?.lng.toFixed(4)}
+                                </span>
                             </div>
                         </div>
-                    ))}
+
+                        {/* Resource Overlay */}
+                        <div className="absolute top-4 right-4 z-[400] flex flex-col gap-2">
+                            {selectedMission.allocatedResources?.map((res: any, idx: number) => (
+                                <div key={idx} className="bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2">
+                                    <InventoryIcon style={{ fontSize: 14 }} />
+                                    {res.resourceId?.name || 'Resource'}: {res.quantity}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Map Area */}
+                        <div className="flex-1 bg-gray-100 dark:bg-gray-800 relative z-0">
+                            {selectedMission.location ? (
+                                <RouteMap
+                                    key={`${selectedMission._id}-${myLocation.lat.toFixed(4)}-${myLocation.lng.toFixed(4)}`}
+                                    from={{ lat: myLocation.lat, lng: myLocation.lng, label: "My Location" }}
+                                    to={{ lat: selectedMission.location.lat, lng: selectedMission.location.lng, label: "MISSION TARGET" }}
+                                    roadPath={roadRoutes[selectedMission._id] || undefined}
+                                    style={{ height: '100%', minHeight: '400px' }}
+                                    className="w-full h-full"
+                                    zoom={14}
+                                />
+                            ) : (
+                                <div className="flex items-center justify-center h-full text-gray-400 flex-col gap-2">
+                                    <RadarIcon sx={{ fontSize: 48, opacity: 0.2 }} />
+                                    <p>Map Navigation Unavailable</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Action Bar */}
+                        <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex justify-between items-center z-10 relative">
+                            <div className="flex items-center gap-4">
+                                <div>
+                                    <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Mission Status</p>
+                                    <p className="font-bold text-blue-600 text-lg leading-none">{selectedMission.status}</p>
+                                </div>
+                            </div>
+                            <Button
+                                variant="contained"
+                                color="success"
+                                size="large"
+                                onClick={() => onUpdateStatus(selectedMission)}
+                                startIcon={<VerifiedIcon />}
+                                sx={{ fontWeight: 'bold', px: 4 }}
+                            >
+                                Update / Resolve
+                            </Button>
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-4">
+                        <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                            <DashboardIcon sx={{ fontSize: 40, opacity: 0.2 }} />
+                        </div>
+                        <p className="font-medium">Select a mission to view tactical details</p>
+                    </div>
+                )}
+            </div>
+        </div >
+    );
+}
+
+// Users View (New)
+function UsersView({ agents }: { agents: Agent[] }) {
+    return (
+        <div>
+            <div className="mb-8 flex justify-between items-end">
+                <div>
+                    <h1 className="text-4xl font-black text-gray-900 dark:text-white mb-2">User Management</h1>
+                    <p className="text-gray-600 dark:text-gray-400">Manage system access and permissions</p>
                 </div>
-            )
-            }
+                <Button variant="contained" startIcon={<ManageAccountsIcon />}>Add New User</Button>
+            </div>
+
+            <Card>
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                                <tr>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">User / Agent</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Role</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                {agents.map((user) => (
+                                    <tr key={user._id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="bg-indigo-100 text-indigo-600 font-bold">
+                                                    {user.name.charAt(0).toUpperCase()}
+                                                </Avatar>
+                                                <div>
+                                                    <p className="font-bold text-gray-900 dark:text-white">{user.name}</p>
+                                                    <p className="text-xs text-gray-500">ID: {user._id.slice(-6)}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <Chip
+                                                label={user.role}
+                                                size="small"
+                                                className={`uppercase font-bold text-[10px] ${user.role.includes('admin') ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                                                    }`}
+                                            />
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                Active
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                                            <Button size="small" color="inherit">Edit</Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }
