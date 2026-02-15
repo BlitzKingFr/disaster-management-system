@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 
-// Simple proxy endpoint that calls a road-routing service (e.g. OpenRouteService)
-// using the incident + base coordinates and returns a road-following polyline.
-//
-// This keeps your API key server-side and lets the frontend just
-// POST { from: { lat, lng }, to: { lat, lng } } and get back coordinates.
+// Using OSRM public API for free, keyless routing.
+// Note: This is a demo server and should not be used for heavy production loads.
 
 interface Coord {
   lat: number;
@@ -16,20 +13,16 @@ interface RouteRequestBody {
   to: Coord;
 }
 
+function normalizeLng(lng: number): number {
+  while (lng > 180) lng -= 360;
+  while (lng < -180) lng += 360;
+  return lng;
+}
+
 export async function POST(req: Request) {
   try {
-    const apiKey = process.env.OPENROUTESERVICE_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        {
-          error:
-            "Routing service not configured. Set OPENROUTESERVICE_API_KEY in your environment.",
-        },
-        { status: 501 }
-      );
-    }
-
     const body = (await req.json()) as RouteRequestBody;
+
     if (
       !body?.from ||
       !body?.to ||
@@ -44,55 +37,59 @@ export async function POST(req: Request) {
       );
     }
 
-    // Use the GET format from the user's example for maximum compatibility
-    const url = new URL("https://api.openrouteservice.org/v2/directions/driving-car");
-    url.searchParams.append("api_key", apiKey);
-    url.searchParams.append("start", `${body.from.lng},${body.from.lat}`);
-    url.searchParams.append("end", `${body.to.lng},${body.to.lat}`);
+    // Normalize coordinates to handle potential wrapping (e.g. lng 448 -> 88)
+    const fromLng = normalizeLng(body.from.lng);
+    const toLng = normalizeLng(body.to.lng);
+    const fromLat = body.from.lat;
+    const toLat = body.to.lat;
 
-    const orsRes = await fetch(url.toString(), {
+    // Use the OSRM instance provided by FOSSGIS e.V. (routing.openstreetmap.de) which is more reliable
+    const baseUrl = "https://routing.openstreetmap.de/routed-car/route/v1/driving";
+    const coordinates = `${fromLng},${fromLat};${toLng},${toLat}`;
+    const url = `${baseUrl}/${coordinates}?overview=full&geometries=geojson`;
+
+    console.log("Fetching route from OSRM:", url);
+
+    const osrmRes = await fetch(url, {
       headers: {
-        "Accept": "application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8"
+        "User-Agent": "DisasterManagementSystem/1.0",
+        "Accept": "application/json"
       }
     });
 
-    if (!orsRes.ok) {
-      const text = await orsRes.text();
-      console.warn("OpenRouteService error or limit reached:", orsRes.status, text);
+    if (!osrmRes.ok) {
+      const text = await osrmRes.text();
+      console.warn("OSRM error:", osrmRes.status, text);
 
-      // Fallback: routing service error (e.g., too far, server down, etc.)
-      // Return a straight line so the frontend caches a result and stops hitting the API
+      // Fallback to straight line
       return NextResponse.json({
         path: [
-          [body.from.lat, body.from.lng],
-          [body.to.lat, body.to.lng],
+          [fromLat, fromLng],
+          [toLat, toLng]
         ],
-        warning: "Routing service limit reached or error. Used straight-line fallback."
+        warning: "Routing service failed. Using straight-line fallback."
       });
     }
 
-    const data = await orsRes.json();
+    const data = await osrmRes.json();
 
-    const coords: [number, number][] =
-      data?.features?.[0]?.geometry?.coordinates ?? [];
-
-    let pathLatLng: [number, number][];
-
-    if (!coords.length) {
-      // Fallback: no road route found (e.g., unreachable by car).
-      // Return a simple straight line so the frontend still renders a path.
-      pathLatLng = [
-        [body.from.lat, body.from.lng],
-        [body.to.lat, body.to.lng],
-      ];
-    } else {
-      // Convert [lng, lat] -> [lat, lng] for Leaflet
-      pathLatLng = coords.map(
-        ([lng, lat]: [number, number]) => [lat, lng]
-      );
+    if (!data.routes || data.routes.length === 0) {
+      // No route found (e.g. across ocean or separate islands without bridge)
+      return NextResponse.json({
+        path: [
+          [fromLat, fromLng],
+          [toLat, toLng]
+        ],
+        warning: "No driving route found. Using straight-line fallback."
+      });
     }
 
+    // OSRM returns [lng, lat]. Leaflet needs [lat, lng].
+    const coords = data.routes[0].geometry.coordinates;
+    const pathLatLng = coords.map((c: [number, number]) => [c[1], c[0]]);
+
     return NextResponse.json({ path: pathLatLng });
+
   } catch (err: any) {
     console.error("Road routing API error:", err);
     return NextResponse.json(
@@ -101,4 +98,3 @@ export async function POST(req: Request) {
     );
   }
 }
-

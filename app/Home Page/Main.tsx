@@ -68,9 +68,12 @@ const Main = ({ user }: { user?: User | null }) => {
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
-          const sorted = mergeSort(data, (a, b) => {
-            if (a.severity !== b.severity) return a.severity - b.severity;
-            return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          // Filter out pending incidents (anonymous reports waiting for verification)
+          const validIncidents = data.filter((inc: any) => inc.status !== 'pending');
+
+          const sorted = mergeSort(validIncidents, (a, b) => {
+            if (a.severity !== b.severity) return b.severity - a.severity; // Higher severity first
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(); // Newer first
           });
           setIncidents(sorted);
         }
@@ -91,11 +94,16 @@ const Main = ({ user }: { user?: User | null }) => {
       return {
         text: "Admin Dashboard",
         action: () => router.push("/NavPages/Dashboard"),
-        className: "bg-slate-800 text-white shadow-lg shadow-slate-500/20 hover:bg-slate-900"
+        className: "bg-slate-800 text-white shadow-lg shadow-slate-500/20 hover:bg-slate-900",
+        secondButton: {
+          text: "User Management",
+          action: () => router.push("/NavPages/UserManagement"),
+          className: "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 hover:bg-indigo-700"
+        }
       };
     }
 
-    if (role.includes("dispatcher")) {
+    if (role.includes("dispatcher") || role.includes("agent")) {
       return {
         text: "Mission Control",
         action: () => router.push("/NavPages/Dashboard"),
@@ -142,10 +150,13 @@ const Main = ({ user }: { user?: User | null }) => {
                       onClick={buttonConfig.action}>
                       {buttonConfig.text}
                     </button>
-                    <button
-                      className="flex min-w-[160px] cursor-pointer items-center justify-center rounded-lg h-12 px-6 bg-white/10 backdrop-blur-md border border-white/20 text-white text-base font-bold hover:bg-white/20 transition-all">
-                      Agency Dashboard
-                    </button>
+                    {buttonConfig.secondButton && (
+                      <button
+                        className={`flex min-w-[160px] cursor-pointer items-center justify-center rounded-lg h-12 px-6 text-base font-bold transition-all ${buttonConfig.secondButton.className}`}
+                        onClick={buttonConfig.secondButton.action}>
+                        {buttonConfig.secondButton.text}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
